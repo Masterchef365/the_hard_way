@@ -1,6 +1,7 @@
 use anyhow::Result;
 use nalgebra::Matrix4;
-use the_hard_way::{DrawType, Engine, Object};
+use the_hard_way::Engine;
+//use the_hard_way::{DrawType, Engine, Object};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},

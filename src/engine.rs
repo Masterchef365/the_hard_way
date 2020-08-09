@@ -1,4 +1,5 @@
 use anyhow::Result;
+use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
 use nalgebra::{Matrix4, Point2, Point3};
 use std::path::Path;
@@ -17,6 +18,7 @@ pub struct Engine {
     pub(crate) device: DeviceLoader,
     pub(crate) queue: vk::Queue,
     pub(crate) command_pool: vk::CommandPool,
+    pub(crate) frame_sync: FrameSync,
 }
 
 impl Engine {

@@ -1,5 +1,6 @@
 use crate::hardware_query::HardwareSelection;
 use crate::Engine;
+use crate::frame_sync::FrameSync;
 use anyhow::Result;
 use erupt::{
     cstr,
@@ -83,6 +84,9 @@ impl Engine {
             vk::CommandPoolCreateInfoBuilder::new().queue_family_index(hardware.queue_family);
         let command_pool = unsafe { device.create_command_pool(&create_info, None, None) }.unwrap();
 
+        // Frame synchronization
+        let frame_sync = FrameSync::new(&device, 2)?;
+
         Ok(Self {
             _entry: entry,
             instance,
@@ -91,6 +95,7 @@ impl Engine {
             device,
             queue,
             command_pool,
+            frame_sync,
         })
     }
 }
