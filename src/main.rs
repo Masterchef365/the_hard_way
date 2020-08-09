@@ -51,9 +51,6 @@ fn main() -> Result<()> {
                 .next_frame(&objects, &Matrix4::identity(), time)
                 .expect("Frame failed to render");
         }
-        Event::LoopDestroyed => {
-            println!("Exiting cleanly");
-        }
         _ => (),
     })
 }

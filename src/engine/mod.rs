@@ -11,17 +11,18 @@ use erupt::{
     utils::{self, allocator, surface},
     vk1_0 as vk, DeviceLoader, EntryLoader, InstanceLoader,
 };
+pub use crate::pipeline::{DrawType, MaterialId};
 
 pub struct Engine {
-    _entry: utils::loading::DefaultEntryLoader,
-    instance: InstanceLoader,
-    surface: khr_surface::SurfaceKHR,
-    hardware: HardwareSelection,
-    device: DeviceLoader,
-    queue: vk::Queue,
-    command_pool: vk::CommandPool,
-    frame_sync: FrameSync,
     allocator: allocator::Allocator,
+    frame_sync: FrameSync,
+    command_pool: vk::CommandPool,
+    queue: vk::Queue,
+    device: DeviceLoader,
+    hardware: HardwareSelection,
+    surface: khr_surface::SurfaceKHR,
+    instance: InstanceLoader,
+    _entry: utils::loading::DefaultEntryLoader,
 }
 
 impl Engine {
@@ -65,15 +66,7 @@ impl Engine {
     }
 }
 
-type Id = u32;
-pub struct MaterialId(Id); // Refers to a VkPipeline
-pub struct MeshId(Id); // Refers to a set of vertex and index buffers
-
-pub enum DrawType {
-    Triangles,
-    Lines,
-    Points,
-}
+pub struct MeshId(u32); // Refers to a set of vertex and index buffers
 
 pub struct Object {
     pub material: MaterialId,
