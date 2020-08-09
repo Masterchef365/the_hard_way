@@ -1,4 +1,5 @@
 use anyhow::Result;
+use crate::hardware_query::HardwareSelection;
 use nalgebra::{Matrix4, Point2, Point3};
 use std::path::Path;
 use winit::window::Window;
@@ -12,6 +13,7 @@ pub struct Engine {
     pub(crate) _entry: utils::loading::DefaultEntryLoader,
     pub(crate) instance: InstanceLoader,
     pub(crate) surface: khr_surface::SurfaceKHR,
+    pub(crate) hardware: HardwareSelection,
     //pub(crate) device: DeviceLoader,
 }
 

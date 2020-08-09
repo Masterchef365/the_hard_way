@@ -15,8 +15,7 @@ fn main() -> Result<()> {
     let window = WindowBuilder::new()
         .with_title(APP_NAME)
         .with_resizable(true)
-        .build(&event_loop)
-        .unwrap();
+        .build(&event_loop)?;
 
     let mut engine = Engine::new(&window, APP_NAME)?;
 
