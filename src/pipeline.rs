@@ -111,7 +111,7 @@ impl Pipeline {
             .logic_op_enable(false)
             .attachments(&color_blend_attachments);
 
-        let entry_point = CString::new("main").unwrap();
+        let entry_point = CString::new("main")?;
 
         let shader_stages = [
             vk::PipelineShaderStageCreateInfoBuilder::new()

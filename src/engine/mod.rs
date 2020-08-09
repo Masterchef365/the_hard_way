@@ -1,5 +1,6 @@
 mod setup;
 mod unsetup;
+mod internals;
 use anyhow::Result;
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
@@ -12,8 +13,13 @@ use erupt::{
     vk1_0 as vk, DeviceLoader, EntryLoader, InstanceLoader,
 };
 pub use crate::pipeline::{DrawType, MaterialId};
+use crate::swapchain::Swapchain;
+use crate::pipeline::Material;
+use std::collections::HashMap;
 
 pub struct Engine {
+    materials: HashMap<MaterialId, Material>,
+    swapchain: Option<Swapchain>,
     allocator: allocator::Allocator,
     frame_sync: FrameSync,
     command_pool: vk::CommandPool,

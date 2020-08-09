@@ -105,6 +105,8 @@ impl Engine {
             command_pool,
             frame_sync,
             allocator,
+            swapchain: None,
+            materials: Default::default(),
         })
     }
 }

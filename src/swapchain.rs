@@ -1,5 +1,5 @@
 use crate::hardware_query::HardwareSelection;
-use crate::pipeline::{MaterialId, Pipeline};
+use crate::pipeline::{Material, MaterialId, Pipeline};
 use anyhow::Result;
 use erupt::{
     extensions::{ext_debug_utils, khr_surface, khr_swapchain},
@@ -7,7 +7,7 @@ use erupt::{
 };
 use std::collections::HashMap;
 
-struct Swapchain {
+pub struct Swapchain {
     swapchain: khr_swapchain::SwapchainKHR,
     render_pass: vk::RenderPass,
     extent: vk::Extent2D,
@@ -16,10 +16,10 @@ struct Swapchain {
     freed: bool,
 }
 
-struct SwapChainImage {
+pub struct SwapChainImage {
     framebuffer: vk::Framebuffer,
     image_view: vk::ImageView,
-    //command_buffers: vk::CommandBuffer,
+    command_buffer: vk::CommandBuffer,
     in_flight: vk::Fence,
     freed: bool,
 }
@@ -29,7 +29,9 @@ impl Swapchain {
         instance: &InstanceLoader,
         device: &DeviceLoader,
         hardware: &HardwareSelection,
+        materials: &HashMap<MaterialId, Material>,
         surface: khr_surface::SurfaceKHR,
+        command_pool: vk::CommandPool,
     ) -> Result<Self> {
         let surface_caps = unsafe {
             instance.get_physical_device_surface_capabilities_khr(
@@ -95,17 +97,37 @@ impl Swapchain {
             .subpasses(&subpasses)
             .dependencies(&dependencies);
 
-        let render_pass = unsafe { device.create_render_pass(&create_info, None, None) }.unwrap();
+        let render_pass = unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
 
+        // Create a render pipeline for each material
+        let pipelines = materials
+            .iter()
+            .map(|(id, material)| {
+                Pipeline::new(&device, material, render_pass, surface_caps.current_extent)
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        // Allocate command buffers
+        let allocate_info = vk::CommandBufferAllocateInfoBuilder::new()
+            .command_pool(command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(swapchain_images.len() as u32);
+
+        let command_buffers =
+            unsafe { device.allocate_command_buffers(&allocate_info) }.result()?;
+
+        // Build swapchain image views and buffers
         let images = swapchain_images
             .iter()
-            .map(|image| {
+            .zip(command_buffers.into_iter())
+            .map(|(image, command_buffer)| {
                 SwapChainImage::new(
                     &device,
                     render_pass,
                     image,
                     surface_caps.current_extent,
                     hardware,
+                    command_buffer,
                 )
             })
             .collect::<Result<Vec<_>>>();
@@ -113,8 +135,18 @@ impl Swapchain {
         todo!();
     }
 
-    pub fn free(&mut self, device: &DeviceLoader) {
-        unsafe { 
+    pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {
+        // Free command buffers in one batch
+        let buffers = self.images.iter().map(|img| img.command_buffer).collect::<Vec<_>>();
+        unsafe {
+            device.free_command_buffers(command_pool, &buffers);
+        }
+
+        for mut image in self.images.drain(..) {
+            image.free(device);
+        }
+
+        unsafe {
             device.destroy_swapchain_khr(Some(self.swapchain), None);
             device.destroy_render_pass(Some(self.render_pass), None);
         }
@@ -128,6 +160,7 @@ impl SwapChainImage {
         swapchain_image: &vk::Image,
         extent: vk::Extent2D,
         hardware: &HardwareSelection,
+        command_buffer: vk::CommandBuffer,
     ) -> Result<Self> {
         let in_flight = vk::Fence::null();
 
@@ -167,10 +200,13 @@ impl SwapChainImage {
             framebuffer,
             image_view,
             in_flight,
+            command_buffer,
             freed: false,
         })
     }
 
+    /// Warning: Does not free the associated command buffer. These are expected to be done in a
+    /// batch.
     pub fn free(&mut self, device: &DeviceLoader) {
         unsafe {
             device.destroy_framebuffer(Some(self.framebuffer), None);
