@@ -21,6 +21,7 @@ pub struct Engine {
     queue: vk::Queue,
     command_pool: vk::CommandPool,
     frame_sync: FrameSync,
+    allocator: allocator::Allocator,
 }
 
 impl Engine {

@@ -1,6 +1,6 @@
+use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
 use crate::Engine;
-use crate::frame_sync::FrameSync;
 use anyhow::Result;
 use erupt::{
     cstr,
@@ -75,17 +75,25 @@ impl Engine {
             .enabled_extension_names(&device_extensions)
             .enabled_layer_names(&device_layers);
 
-        let device =
-            DeviceLoader::new(&instance, hardware.physical_device, &create_info, None)?;
+        let device = DeviceLoader::new(&instance, hardware.physical_device, &create_info, None)?;
         let queue = unsafe { device.get_device_queue(hardware.queue_family, 0, None) };
 
         // Command pool
         let create_info =
             vk::CommandPoolCreateInfoBuilder::new().queue_family_index(hardware.queue_family);
-        let command_pool = unsafe { device.create_command_pool(&create_info, None, None) }.result()?;
+        let command_pool =
+            unsafe { device.create_command_pool(&create_info, None, None) }.result()?;
 
         // Frame synchronization
         let frame_sync = FrameSync::new(&device, 2)?;
+
+        // Device memory allocator
+        let allocator = allocator::Allocator::new(
+            &instance,
+            hardware.physical_device,
+            allocator::AllocatorCreateInfo::default(),
+        )
+        .result()?;
 
         Ok(Self {
             _entry: entry,
@@ -96,6 +104,7 @@ impl Engine {
             queue,
             command_pool,
             frame_sync,
+            allocator,
         })
     }
 }
