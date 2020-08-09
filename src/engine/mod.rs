@@ -1,3 +1,5 @@
+mod setup;
+mod unsetup;
 use anyhow::Result;
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
@@ -11,14 +13,14 @@ use erupt::{
 };
 
 pub struct Engine {
-    pub(crate) _entry: utils::loading::DefaultEntryLoader,
-    pub(crate) instance: InstanceLoader,
-    pub(crate) surface: khr_surface::SurfaceKHR,
-    pub(crate) hardware: HardwareSelection,
-    pub(crate) device: DeviceLoader,
-    pub(crate) queue: vk::Queue,
-    pub(crate) command_pool: vk::CommandPool,
-    pub(crate) frame_sync: FrameSync,
+    _entry: utils::loading::DefaultEntryLoader,
+    instance: InstanceLoader,
+    surface: khr_surface::SurfaceKHR,
+    hardware: HardwareSelection,
+    device: DeviceLoader,
+    queue: vk::Queue,
+    command_pool: vk::CommandPool,
+    frame_sync: FrameSync,
 }
 
 impl Engine {

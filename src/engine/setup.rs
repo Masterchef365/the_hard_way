@@ -19,7 +19,7 @@ use winit::window::Window;
 impl Engine {
     pub fn new(window: &Window, app_name: &str) -> Result<Self> {
         // Entry
-        let entry = EntryLoader::new().unwrap();
+        let entry = EntryLoader::new()?;
 
         // Instance
         let application_name = CString::new(app_name)?;
@@ -76,13 +76,13 @@ impl Engine {
             .enabled_layer_names(&device_layers);
 
         let device =
-            DeviceLoader::new(&instance, hardware.physical_device, &create_info, None).unwrap();
+            DeviceLoader::new(&instance, hardware.physical_device, &create_info, None)?;
         let queue = unsafe { device.get_device_queue(hardware.queue_family, 0, None) };
 
         // Command pool
         let create_info =
             vk::CommandPoolCreateInfoBuilder::new().queue_family_index(hardware.queue_family);
-        let command_pool = unsafe { device.create_command_pool(&create_info, None, None) }.unwrap();
+        let command_pool = unsafe { device.create_command_pool(&create_info, None, None) }.result()?;
 
         // Frame synchronization
         let frame_sync = FrameSync::new(&device, 2)?;

@@ -18,6 +18,7 @@ pub struct HardwareSelection {
     pub present_mode: khr_surface::PresentModeKHR,
 }
 
+// TODO: Flatten this and replace .unwrap() with .result()?
 impl HardwareSelection {
     pub fn query(
         instance: &InstanceLoader,
