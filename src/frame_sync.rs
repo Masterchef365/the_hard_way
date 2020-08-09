@@ -1,73 +1,53 @@
 use anyhow::Result;
 use erupt::{vk1_0 as vk, DeviceLoader};
 
+/// Manages fences and semaphores for every given frame
 pub struct FrameSync {
-    pub in_flight_fences: Vec<vk::Fence>,
-    pub image_available_semaphores: Vec<vk::Semaphore>,
-    pub render_finished_semaphores: Vec<vk::Semaphore>,
-    pub frames_in_flight: usize,
-    pub frame_idx: usize,
-    pub freed: bool,
+    frames: Vec<Frame>,
+    frame_idx: usize,
+    freed: bool,
+}
+
+struct Frame {
+    in_flight_fence: vk::Fence,
+    image_available: vk::Semaphore,
+    render_finished: vk::Semaphore,
 }
 
 impl FrameSync {
     pub fn new(device: &DeviceLoader, frames_in_flight: usize) -> Result<Self> {
-        unsafe {
-            let create_info = vk::SemaphoreCreateInfoBuilder::new();
-            let image_available_semaphores: Vec<_> = (0..frames_in_flight)
-                .map(|_|  device.create_semaphore(&create_info, None, None).result())
-                .collect::<Result<_, _>>()?;
+        let frames = (0..frames_in_flight)
+            .map(|_| Frame::new(device))
+            .collect::<Result<_>>()?;
 
-            let render_finished_semaphores: Vec<_> = (0..frames_in_flight)
-                .map(|_| device.create_semaphore(&create_info, None, None).result())
-                .collect::<Result<_, _>>()?;
-
-            let create_info = vk::FenceCreateInfoBuilder::new().flags(vk::FenceCreateFlags::SIGNALED);
-            let in_flight_fences: Vec<_> = (0..frames_in_flight)
-                .map(|_| device.create_fence(&create_info, None, None).result())
-                .collect::<Result<_, _>>()?;
-
-            Ok(Self {
-                image_available_semaphores,
-                render_finished_semaphores,
-                in_flight_fences,
-                frames_in_flight,
-                freed: false,
-                frame_idx: 0
-            })
-        }
+        Ok(Self {
+            frames,
+            freed: false,
+            frame_idx: 0,
+        })
     }
 
     pub fn fence(&self) -> &vk::Fence {
-        &self.in_flight_fences[self.frame_idx]
+        &self.frames[self.frame_idx].in_flight_fence
     }
 
     pub fn image_available(&self) -> &vk::Semaphore {
-        &self.image_available_semaphores[self.frame_idx]
+        &self.frames[self.frame_idx].image_available
     }
 
     pub fn render_finished(&self) -> &vk::Semaphore {
-        &self.render_finished_semaphores[self.frame_idx]
+        &self.frames[self.frame_idx].render_finished
     }
 
     pub fn next_frame(&mut self) {
-        self.frame_idx = (self.frame_idx + 1) % self.frames_in_flight;
+        self.frame_idx = (self.frame_idx + 1) % self.frames.len();
     }
 
     pub fn free(&mut self, device: &DeviceLoader) {
-        unsafe {
-            for &semaphore in self
-                .image_available_semaphores
-                .iter()
-                .chain(self.render_finished_semaphores.iter())
-            {
-                device.destroy_semaphore(Some(semaphore), None);
-            }
-
-            for &fence in &self.in_flight_fences {
-                device.destroy_fence(Some(fence), None);
-            }
+        for frame in &mut self.frames {
+            frame.free(device);
         }
+        self.freed = true;
     }
 }
 
@@ -75,6 +55,33 @@ impl Drop for FrameSync {
     fn drop(&mut self) {
         if !self.freed {
             panic!("FrameSync dropped before its free() method was called!");
+        }
+    }
+}
+
+impl Frame {
+    pub fn new(device: &DeviceLoader) -> Result<Self> {
+        unsafe {
+            let create_info = vk::SemaphoreCreateInfoBuilder::new();
+            let image_available = device.create_semaphore(&create_info, None, None).result()?;
+            let render_finished = device.create_semaphore(&create_info, None, None).result()?;
+
+            let create_info =
+                vk::FenceCreateInfoBuilder::new().flags(vk::FenceCreateFlags::SIGNALED);
+            let in_flight_fence = device.create_fence(&create_info, None, None).result()?;
+            Ok(Self {
+                in_flight_fence,
+                image_available,
+                render_finished,
+            })
+        }
+    }
+
+    pub fn free(&mut self, device: &DeviceLoader) {
+        unsafe {
+            device.destroy_semaphore(Some(self.image_available), None);
+            device.destroy_semaphore(Some(self.render_finished), None);
+            device.destroy_fence(Some(self.in_flight_fence), None);
         }
     }
 }
