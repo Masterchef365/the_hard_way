@@ -10,7 +10,6 @@ use std::collections::HashMap;
 struct Swapchain {
     swapchain: khr_swapchain::SwapchainKHR,
     render_pass: vk::RenderPass,
-    pipeline_layout: vk::PipelineLayout,
     extent: vk::Extent2D,
     pipelines: HashMap<MaterialId, Pipeline>,
     images: Vec<SwapChainImage>,
@@ -114,8 +113,11 @@ impl Swapchain {
         todo!();
     }
 
-    pub fn free(&mut self) {
-        unsafe { todo!() }
+    pub fn free(&mut self, device: &DeviceLoader) {
+        unsafe { 
+            device.destroy_swapchain_khr(Some(self.swapchain), None);
+            device.destroy_render_pass(Some(self.render_pass), None);
+        }
     }
 }
 
@@ -167,6 +169,23 @@ impl SwapChainImage {
             in_flight,
             freed: false,
         })
+    }
+
+    pub fn free(&mut self, device: &DeviceLoader) {
+        unsafe {
+            device.destroy_framebuffer(Some(self.framebuffer), None);
+            device.destroy_image_view(Some(self.image_view), None);
+            device.destroy_fence(Some(self.in_flight), None);
+        }
+        self.freed = true;
+    }
+}
+
+impl Drop for SwapChainImage {
+    fn drop(&mut self) {
+        if !self.freed {
+            panic!("Swapchain image dropped before it was freed");
+        }
     }
 }
 
