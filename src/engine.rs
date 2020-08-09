@@ -14,7 +14,9 @@ pub struct Engine {
     pub(crate) instance: InstanceLoader,
     pub(crate) surface: khr_surface::SurfaceKHR,
     pub(crate) hardware: HardwareSelection,
-    //pub(crate) device: DeviceLoader,
+    pub(crate) device: DeviceLoader,
+    pub(crate) queue: vk::Queue,
+    pub(crate) command_pool: vk::CommandPool,
 }
 
 impl Engine {

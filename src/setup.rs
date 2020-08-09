@@ -62,11 +62,35 @@ impl Engine {
         // Hardware selection
         let hardware = HardwareSelection::query(&instance, surface, &device_extensions)?;
 
+        // Create logical device and queues
+        let queue_create_info = [vk::DeviceQueueCreateInfoBuilder::new()
+            .queue_family_index(hardware.queue_family)
+            .queue_priorities(&[1.0])];
+
+        let physical_device_features = vk::PhysicalDeviceFeaturesBuilder::new();
+        let create_info = vk::DeviceCreateInfoBuilder::new()
+            .queue_create_infos(&queue_create_info)
+            .enabled_features(&physical_device_features)
+            .enabled_extension_names(&device_extensions)
+            .enabled_layer_names(&device_layers);
+
+        let device =
+            DeviceLoader::new(&instance, hardware.physical_device, &create_info, None).unwrap();
+        let queue = unsafe { device.get_device_queue(hardware.queue_family, 0, None) };
+
+        // Command pool
+        let create_info =
+            vk::CommandPoolCreateInfoBuilder::new().queue_family_index(hardware.queue_family);
+        let command_pool = unsafe { device.create_command_pool(&create_info, None, None) }.unwrap();
+
         Ok(Self {
             _entry: entry,
             instance,
             surface,
             hardware,
+            device,
+            queue,
+            command_pool,
         })
     }
 }
