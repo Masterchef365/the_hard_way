@@ -7,17 +7,20 @@ use winit::{
     window::WindowBuilder,
 };
 
+const APP_NAME: &str = "Engine demo app";
+
 fn main() -> Result<()> {
     let event_loop = EventLoop::new();
 
     let window = WindowBuilder::new()
-        .with_title("Engine demo app")
+        .with_title(APP_NAME)
         .with_resizable(true)
         .build(&event_loop)
         .unwrap();
 
-    let mut engine = Engine::new(&window)?;
+    let mut engine = Engine::new(&window, APP_NAME)?;
 
+    /*
     let material = engine.load_material(
         "../shaders/triangle.vert.spv",
         "../shaders/triangle.frag.spv",
@@ -29,6 +32,8 @@ fn main() -> Result<()> {
         mesh,
         transform: Matrix4::identity(),
     }];
+    */
+    let objects = [];
 
     let start_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
