@@ -3,6 +3,7 @@ use anyhow::Result;
 use erupt::{vk1_0 as vk, DeviceLoader};
 use std::ffi::CString;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MaterialId(u32);
 
 /// Represents a backing pipeline that can render an object

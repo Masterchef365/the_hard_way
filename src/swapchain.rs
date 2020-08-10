@@ -1,3 +1,4 @@
+use crate::frame_sync::Frame;
 use crate::hardware_query::HardwareSelection;
 use crate::pipeline::{Material, MaterialId, Pipeline};
 use anyhow::Result;
@@ -17,14 +18,52 @@ pub struct Swapchain {
 }
 
 pub struct SwapChainImage {
-    framebuffer: vk::Framebuffer,
-    image_view: vk::ImageView,
-    command_buffer: vk::CommandBuffer,
-    in_flight: vk::Fence,
+    pub framebuffer: vk::Framebuffer,
+    pub image_view: vk::ImageView,
+    pub command_buffer: vk::CommandBuffer,
+    /// Whether or not the frame which this swapchain image is dependent on is in flight or not
+    pub in_flight: vk::Fence,
     freed: bool,
 }
 
 impl Swapchain {
+    /// Returns None if the swapchain is out of date
+    pub fn next_image(
+        &mut self,
+        device: &DeviceLoader,
+        frame: &Frame,
+    ) -> Option<&mut SwapChainImage> {
+        let image_index = unsafe {
+            device.acquire_next_image_khr(
+                self.swapchain,
+                u64::MAX,
+                Some(frame.image_available),
+                None,
+                None,
+            )
+        };
+
+        let image_index = if image_index.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
+            return None;
+        } else {
+            image_index.unwrap() as usize
+        };
+
+        let image = &mut self.images[image_index];
+
+        // Wait until the frame associated with this swapchain image is finisehd rendering, if any
+        // May be null if no frames have flowed just yet
+        if !image.in_flight.is_null() {
+            unsafe { device.wait_for_fences(&[image.in_flight], true, u64::MAX) }.unwrap();
+        }
+
+        // Associate this swapchain image with the given frame. When the frame is finished, this
+        // swapchain image will know (see above) when this image is rendered.
+        image.in_flight = frame.in_flight_fence;
+
+        Some(image)
+    }
+
     pub fn new(
         instance: &InstanceLoader,
         device: &DeviceLoader,
@@ -97,15 +136,19 @@ impl Swapchain {
             .subpasses(&subpasses)
             .dependencies(&dependencies);
 
-        let render_pass = unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
+        let render_pass =
+            unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
 
         // Create a render pipeline for each material
         let pipelines = materials
             .iter()
-            .map(|(id, material)| {
-                Pipeline::new(&device, material, render_pass, surface_caps.current_extent)
+            .map(|(id, material)| -> Result<(MaterialId, Pipeline)> {
+                Ok((
+                    id.clone(),
+                    Pipeline::new(&device, material, render_pass, surface_caps.current_extent)?,
+                ))
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Result<_>>()?;
 
         // Allocate command buffers
         let allocate_info = vk::CommandBufferAllocateInfoBuilder::new()
@@ -130,14 +173,25 @@ impl Swapchain {
                     command_buffer,
                 )
             })
-            .collect::<Result<Vec<_>>>();
+            .collect::<Result<Vec<_>>>()?;
 
-        todo!();
+        Ok(Self {
+            swapchain,
+            render_pass,
+            extent: surface_caps.current_extent,
+            pipelines,
+            images,
+            freed: false,
+        })
     }
 
     pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {
         // Free command buffers in one batch
-        let buffers = self.images.iter().map(|img| img.command_buffer).collect::<Vec<_>>();
+        let buffers = self
+            .images
+            .iter()
+            .map(|img| img.command_buffer)
+            .collect::<Vec<_>>();
         unsafe {
             device.free_command_buffers(command_pool, &buffers);
         }

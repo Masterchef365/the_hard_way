@@ -8,10 +8,13 @@ pub struct FrameSync {
     freed: bool,
 }
 
-struct Frame {
-    in_flight_fence: vk::Fence,
-    image_available: vk::Semaphore,
-    render_finished: vk::Semaphore,
+pub struct Frame {
+    /// Whether or not the swapchain image has become available yet
+    pub image_available: vk::Semaphore,
+    /// Whether or not rendering has finished
+    pub render_finished: vk::Semaphore,
+    /// Whether or not this frame is in flight
+    pub in_flight_fence: vk::Fence,
 }
 
 impl FrameSync {
@@ -27,20 +30,15 @@ impl FrameSync {
         })
     }
 
-    pub fn fence(&self) -> &vk::Fence {
-        &self.frames[self.frame_idx].in_flight_fence
-    }
-
-    pub fn image_available(&self) -> &vk::Semaphore {
-        &self.frames[self.frame_idx].image_available
-    }
-
-    pub fn render_finished(&self) -> &vk::Semaphore {
-        &self.frames[self.frame_idx].render_finished
-    }
-
-    pub fn next_frame(&mut self) {
+    pub fn next_frame(&mut self, device: &DeviceLoader) -> &mut Frame {
         self.frame_idx = (self.frame_idx + 1) % self.frames.len();
+        let frame = &mut self.frames[self.frame_idx];
+        unsafe {
+            device
+                .wait_for_fences(&[frame.in_flight_fence], true, u64::MAX)
+                .unwrap();
+        }
+        frame
     }
 
     pub fn free(&mut self, device: &DeviceLoader) {

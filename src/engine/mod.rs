@@ -1,6 +1,7 @@
 mod setup;
 mod unsetup;
 mod internals;
+mod frame;
 use anyhow::Result;
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
@@ -32,19 +33,6 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn next_frame(
-        &mut self,
-        objects: &[Object],
-        camera: &Matrix4<f32>,
-        time: f32,
-    ) -> Result<()> {
-        // For each object, set its transform uniform
-        // Set uniform for time
-        // Set uniform for view and projection from Camera
-        // pseudocode from earlier, grouping objects by ShaderId
-        Ok(())
-    }
-
     pub fn load_material(
         &mut self,
         vertex: impl AsRef<Path>,
