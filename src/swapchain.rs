@@ -9,10 +9,10 @@ use erupt::{
 use std::collections::HashMap;
 
 pub struct Swapchain {
-    swapchain: khr_swapchain::SwapchainKHR,
-    render_pass: vk::RenderPass,
-    extent: vk::Extent2D,
-    pipelines: HashMap<MaterialId, Pipeline>,
+    pub swapchain: khr_swapchain::SwapchainKHR,
+    pub render_pass: vk::RenderPass,
+    pub extent: vk::Extent2D,
+    pub pipelines: HashMap<MaterialId, Pipeline>,
     images: Vec<SwapChainImage>,
     freed: bool,
 }
@@ -32,7 +32,7 @@ impl Swapchain {
         &mut self,
         device: &DeviceLoader,
         frame: &Frame,
-    ) -> Option<&mut SwapChainImage> {
+    ) -> Option<(u32, &mut SwapChainImage)> {
         let image_index = unsafe {
             device.acquire_next_image_khr(
                 self.swapchain,
@@ -46,10 +46,10 @@ impl Swapchain {
         let image_index = if image_index.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
             return None;
         } else {
-            image_index.unwrap() as usize
+            image_index.unwrap()
         };
 
-        let image = &mut self.images[image_index];
+        let image = &mut self.images[image_index as usize];
 
         // Wait until the frame associated with this swapchain image is finisehd rendering, if any
         // May be null if no frames have flowed just yet
@@ -61,7 +61,7 @@ impl Swapchain {
         // swapchain image will know (see above) when this image is rendered.
         image.in_flight = frame.in_flight_fence;
 
-        Some(image)
+        Some((image_index, image))
     }
 
     pub fn new(

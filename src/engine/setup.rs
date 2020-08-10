@@ -80,7 +80,9 @@ impl Engine {
 
         // Command pool
         let create_info =
-            vk::CommandPoolCreateInfoBuilder::new().queue_family_index(hardware.queue_family);
+            vk::CommandPoolCreateInfoBuilder::new()
+            .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
+            .queue_family_index(hardware.queue_family);
         let command_pool =
             unsafe { device.create_command_pool(&create_info, None, None) }.result()?;
 
