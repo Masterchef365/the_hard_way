@@ -79,7 +79,9 @@ impl Frame {
         unsafe {
             device.destroy_semaphore(Some(self.image_available), None);
             device.destroy_semaphore(Some(self.render_finished), None);
-            device.destroy_fence(Some(self.in_flight_fence), None);
+            if !self.in_flight_fence.is_null() {
+                device.destroy_fence(Some(self.in_flight_fence), None);
+            }
         }
     }
 }

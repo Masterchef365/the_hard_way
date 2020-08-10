@@ -186,6 +186,10 @@ impl Swapchain {
     }
 
     pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {
+        unsafe {
+            device.device_wait_idle().unwrap();
+        }
+
         // Free command buffers in one batch
         let buffers = self
             .images
@@ -204,6 +208,7 @@ impl Swapchain {
             device.destroy_swapchain_khr(Some(self.swapchain), None);
             device.destroy_render_pass(Some(self.render_pass), None);
         }
+        self.freed = true;
     }
 }
 
@@ -265,7 +270,6 @@ impl SwapChainImage {
         unsafe {
             device.destroy_framebuffer(Some(self.framebuffer), None);
             device.destroy_image_view(Some(self.image_view), None);
-            device.destroy_fence(Some(self.in_flight), None);
         }
         self.freed = true;
     }
