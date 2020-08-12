@@ -24,7 +24,7 @@ impl Engine {
                 self.command_pool,
             )?;
             for (id, material) in self.materials.iter() {
-                swapchain.add_pipeline(&self.device, *id, material);
+                swapchain.add_pipeline(&self.device, *id, material)?;
             }
             self.swapchain = Some(swapchain);
         }
@@ -42,7 +42,7 @@ impl Engine {
         let (swapchain_image_idx, swapchain_image) = match swapchain_image {
             Some(s) => s,
             None => {
-                self.invalidate_swapchain();
+                self.invalidate_swapchain()?;
                 return Ok(());
             }
         };
@@ -50,7 +50,7 @@ impl Engine {
         // Reset and write command buffers for this frame
         let command_buffer = swapchain_image.command_buffer;
         unsafe {
-            self.device.reset_command_buffer(command_buffer, None);
+            self.device.reset_command_buffer(command_buffer, None).result()?;
 
             let begin_info = vk::CommandBufferBeginInfoBuilder::new();
             self.device
@@ -110,7 +110,7 @@ impl Engine {
         let queue_result = unsafe { self.device.queue_present_khr(self.queue, &present_info) };
 
         if queue_result.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
-            self.invalidate_swapchain();
+            self.invalidate_swapchain()?;
             return Ok(());
         } else {
             queue_result.unwrap();

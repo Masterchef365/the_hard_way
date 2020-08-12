@@ -51,7 +51,7 @@ impl Engine {
         self.next_material_id += 1;
         let material = Material::new(&self.device, vertex, fragment, draw_type)?;
         if let Some(swapchain) = &mut self.swapchain {
-            swapchain.add_pipeline(&self.device, id, &material);
+            swapchain.add_pipeline(&self.device, id, &material)?;
         }
         self.materials.insert(id, material);
         Ok(id)
@@ -59,6 +59,9 @@ impl Engine {
 
     pub fn unload_material(&mut self, material: MaterialId) -> Result<()> {
         if let Some(mut mat) = self.materials.remove(&material) {
+            if let Some(swapchain) = &mut self.swapchain {
+                swapchain.remove_pipeline(&self.device, material)?;
+            }
             mat.free(&self.device);
             Ok(())
         } else {
