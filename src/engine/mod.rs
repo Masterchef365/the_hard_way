@@ -133,10 +133,7 @@ impl Engine {
     }
 
     fn free_buffer(&mut self, buffer: AllocatedBuffer) {
-        unsafe {
-            self.device.destroy_buffer(Some(buffer.buffer), None);
-            self.allocator.free(&self.device, buffer.allocation);
-        }
+        self.allocator.free(&self.device, buffer.allocation);
     }
 }
 
