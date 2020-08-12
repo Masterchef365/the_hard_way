@@ -4,9 +4,10 @@ mod setup;
 mod unsetup;
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
-pub use crate::pipeline::DrawType;
+use crate::pipeline::DrawType;
 use crate::pipeline::Material;
 use crate::swapchain::Swapchain;
+use crate::vertex::Vertex;
 use anyhow::Result;
 use erupt::{
     extensions::{ext_debug_utils, khr_surface, khr_swapchain},
@@ -49,6 +50,9 @@ impl Engine {
         let id = MaterialId(self.next_material_id);
         self.next_material_id += 1;
         let material = Material::new(&self.device, vertex, fragment, draw_type)?;
+        if let Some(swapchain) = &mut self.swapchain {
+            swapchain.add_pipeline(&self.device, id, &material);
+        }
         self.materials.insert(id, material);
         Ok(id)
     }
@@ -67,9 +71,9 @@ impl Engine {
 
     pub fn add_object(
         &mut self,
-        vertices: &[Point3<f32>],
-        //uv: &[Point2<f32>],
+        vertices: &[Vertex],
         indices: &[u16],
+        material: MaterialId,
     ) -> Result<ObjectId> {
         let id = self.next_object_id;
         self.next_object_id += 1;

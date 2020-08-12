@@ -15,14 +15,18 @@ impl Engine {
     ) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
-            self.swapchain = Some(Swapchain::new(
+            let mut swapchain =
+            Swapchain::new(
                 &self.instance,
                 &self.device,
                 &self.hardware,
-                &self.materials,
                 self.surface,
                 self.command_pool,
-            )?);
+            )?;
+            for (id, material) in self.materials.iter() {
+                swapchain.add_pipeline(&self.device, *id, material);
+            }
+            self.swapchain = Some(swapchain);
         }
         let swapchain = self.swapchain.as_mut().unwrap();
         let render_pass = swapchain.render_pass; // These two needed for borrowing reasons
@@ -38,8 +42,7 @@ impl Engine {
         let (swapchain_image_idx, swapchain_image) = match swapchain_image {
             Some(s) => s,
             None => {
-                swapchain.free(&self.device, self.command_pool);
-                self.swapchain = None;
+                self.invalidate_swapchain();
                 return Ok(());
             }
         };
@@ -107,8 +110,7 @@ impl Engine {
         let queue_result = unsafe { self.device.queue_present_khr(self.queue, &present_info) };
 
         if queue_result.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
-            swapchain.free(&self.device, self.command_pool);
-            self.swapchain = None;
+            self.invalidate_swapchain();
             return Ok(());
         } else {
             queue_result.unwrap();

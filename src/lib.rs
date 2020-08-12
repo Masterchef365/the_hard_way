@@ -6,3 +6,4 @@ mod pipeline;
 mod vertex;
 pub use engine::*;
 pub use pipeline::DrawType;
+pub use vertex::Vertex;

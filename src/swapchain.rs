@@ -69,7 +69,6 @@ impl Swapchain {
         instance: &InstanceLoader,
         device: &DeviceLoader,
         hardware: &HardwareSelection,
-        materials: &HashMap<MaterialId, Material>,
         surface: khr_surface::SurfaceKHR,
         command_pool: vk::CommandPool,
     ) -> Result<Self> {
@@ -140,17 +139,6 @@ impl Swapchain {
         let render_pass =
             unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
 
-        // Create a render pipeline for each material
-        let pipelines = materials
-            .iter()
-            .map(|(id, material)| -> Result<(MaterialId, Pipeline)> {
-                Ok((
-                    id.clone(),
-                    Pipeline::new(&device, material, render_pass, surface_caps.current_extent)?,
-                ))
-            })
-            .collect::<Result<_>>()?;
-
         // Allocate command buffers
         let allocate_info = vk::CommandBufferAllocateInfoBuilder::new()
             .command_pool(command_pool)
@@ -180,10 +168,27 @@ impl Swapchain {
             swapchain,
             render_pass,
             extent: surface_caps.current_extent,
-            pipelines,
+            pipelines: Default::default(),
             images,
             freed: false,
         })
+    }
+
+    pub fn add_pipeline(&mut self, device: &DeviceLoader, id: MaterialId, material: &Material) -> Result<()> {
+        self.pipelines.insert(id, Pipeline::new(&device, material, self.render_pass, self.extent)?);
+        Ok(())
+    }
+
+    pub fn remove_pipeline(&mut self, device: &DeviceLoader, id: MaterialId) -> Result<()> {
+        if let Some(mut mat) = self.pipelines.remove(&id) {
+            mat.free(device);
+            Ok(())
+        } else {
+            Err(anyhow::format_err!(
+                "Tried to free non-existant pipeline {:?}",
+                id
+            ))
+        }
     }
 
     pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {

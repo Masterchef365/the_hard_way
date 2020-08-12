@@ -1,7 +1,7 @@
 use anyhow::Result;
 use nalgebra::Matrix4;
 use std::fs;
-use the_hard_way::{Engine, DrawType};
+use the_hard_way::{Engine, DrawType, Vertex};
 //use the_hard_way::{DrawType, Engine, Object};
 use winit::{
     event::{Event, StartCause, WindowEvent},
@@ -24,14 +24,29 @@ fn main() -> Result<()> {
     let vertex = fs::read("shaders/triangle.vert.spv")?;
     let fragment = fs::read("shaders/triangle.frag.spv")?;
     let material = engine.load_material(&vertex, &fragment, DrawType::Triangles)?;
-    /*
-    let mesh = engine.load_mesh(&[], &[], &[])?;
-    let objects = [Object {
-        material,
-        mesh,
-        transform: Matrix4::identity(),
-    }];
-    */
+
+    let indices: [u16; 6] = [0, 1, 2, 2, 3, 0];
+
+    let vertices = [
+        Vertex {
+            pos: [-0.5, -0.5],
+            color: [1.0, 0.0, 0.0],
+        },
+        Vertex {
+            pos: [0.5, -0.5],
+            color: [0.0, 1.0, 0.0],
+        },
+        Vertex {
+            pos: [0.5, 0.5],
+            color: [0.0, 0.0, 1.0],
+        },
+        Vertex {
+            pos: [-0.5, 0.5],
+            color: [1.0, 1.0, 1.0],
+        },
+    ];
+
+    let mesh = engine.add_object(&vertices[..], &indices[..], material);
 
     let start_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
@@ -49,12 +64,12 @@ fn main() -> Result<()> {
                 .next_frame(&Matrix4::identity(), time)
                 .expect("Frame failed to render");
             /*
-            let end_time = std::time::Instant::now();
-            println!(
-                "FPS: {}",
-                1_000_000.0 / (end_time - current_time).as_micros() as f32
-            );
-            */
+               let end_time = std::time::Instant::now();
+               println!(
+               "FPS: {}",
+               1_000_000.0 / (end_time - current_time).as_micros() as f32
+               );
+               */
         }
         _ => (),
     })
