@@ -1,0 +1,5 @@
+* Vertex and index buffers for each object
+* Fill out the command buffers for every object, binding appropriate pipelines as necessary
+    * You will want to group objects by pipeline/material
+* Uniforms and descriptor sets
+    * Upload camera matrix each frame

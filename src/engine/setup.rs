@@ -109,6 +109,8 @@ impl Engine {
             allocator,
             swapchain: None,
             materials: Default::default(),
+            next_material_id: 0,
+            next_object_id: 0,
         })
     }
 }

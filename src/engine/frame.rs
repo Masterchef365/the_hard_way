@@ -1,4 +1,4 @@
-use super::{Engine, Object};
+use super::Engine;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
 use erupt::{
@@ -10,7 +10,6 @@ use nalgebra::{Matrix4, Point2, Point3};
 impl Engine {
     pub fn next_frame(
         &mut self,
-        objects: &[Object],
         camera: &Matrix4<f32>,
         time: f32,
     ) -> Result<()> {
@@ -58,7 +57,7 @@ impl Engine {
             // Set render pass
             let clear_values = [vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
+                    float32: [0.0, 1.0, 0.0, 1.0],
                 },
             }];
             let begin_info = vk::RenderPassBeginInfoBuilder::new()

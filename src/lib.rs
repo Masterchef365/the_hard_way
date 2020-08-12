@@ -5,3 +5,4 @@ mod swapchain;
 mod pipeline;
 mod vertex;
 pub use engine::*;
+pub use pipeline::DrawType;

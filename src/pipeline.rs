@@ -1,15 +1,13 @@
 use crate::vertex::Vertex;
 use anyhow::Result;
-use erupt::{vk1_0 as vk, DeviceLoader};
+use erupt::{vk1_0 as vk, DeviceLoader, utils};
 use std::ffi::CString;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MaterialId(u32);
 
 /// Represents a backing pipeline that can render an object
 /// with the material from which it was created.
 pub struct Pipeline {
     pipeline: vk::Pipeline,
+    layout: vk::PipelineLayout,
     freed: bool,
 }
 
@@ -29,7 +27,14 @@ pub enum DrawType {
 }
 
 impl Material {
-    pub fn new(device: &DeviceLoader) -> Result<Self> {
+    pub fn new(device: &DeviceLoader, vertex_src: &[u8], fragment_src: &[u8], draw_type: DrawType) -> Result<Self> {
+        let vert_decoded = utils::decode_spv(vertex_src).unwrap();
+        let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&vert_decoded);
+        let vertex = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
+
+        let frag_decoded = utils::decode_spv(fragment_src).unwrap();
+        let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&frag_decoded);
+        let fragment = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
         // Probably want multiple (model vs camera), but I think we'll leave it out for now..
         /*
         let ubo_layout_bindings = [vk::DescriptorSetLayoutBindingBuilder::new()
@@ -45,7 +50,21 @@ impl Material {
             unsafe { device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
                 .result()?;
         */
-        todo!("Shaders")
+
+        Ok(Self {
+            draw_type,
+            vertex,
+            fragment,
+            freed: false,
+        })
+    }
+
+    pub fn free(&mut self, device: &DeviceLoader) {
+        unsafe {
+            device.destroy_shader_module(Some(self.fragment), None);
+            device.destroy_shader_module(Some(self.vertex), None);
+        }
+        self.freed = true;
     }
 }
 
@@ -80,9 +99,11 @@ impl Pipeline {
             .height(extent.height as f32)
             .min_depth(0.0)
             .max_depth(1.0)];
+
         let scissors = [vk::Rect2DBuilder::new()
             .offset(vk::Offset2D { x: 0, y: 0 })
             .extent(extent)];
+
         let viewport_state = vk::PipelineViewportStateCreateInfoBuilder::new()
             .viewports(&viewports)
             .scissors(&scissors);
@@ -150,7 +171,32 @@ impl Pipeline {
 
         Ok(Self {
             pipeline,
+            layout: pipeline_layout,
             freed: false,
         })
+    }
+
+    pub fn free(&mut self, device: &DeviceLoader) {
+        unsafe {
+            device.destroy_pipeline(Some(self.pipeline), None);
+            device.destroy_pipeline_layout(Some(self.layout), None);
+        }
+        self.freed = true;
+    }
+}
+
+impl Drop for Pipeline {
+    fn drop(&mut self) {
+        if !self.freed {
+            panic!("Pipeline was dropped before it was freed!");
+        }
+    }
+}
+
+impl Drop for Material {
+    fn drop(&mut self) {
+        if !self.freed {
+            panic!("Material was dropped before it was freed!");
+        }
     }
 }

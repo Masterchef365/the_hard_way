@@ -3,6 +3,9 @@ use crate::Engine;
 impl Drop for Engine {
     fn drop(&mut self) {
         unsafe {
+            for material in self.materials.values_mut() {
+                material.free(&self.device);
+            }
             if let Some(swapchain) = &mut self.swapchain {
                 swapchain.free(&self.device, self.command_pool);
             }

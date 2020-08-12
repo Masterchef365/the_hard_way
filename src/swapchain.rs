@@ -1,11 +1,12 @@
 use crate::frame_sync::Frame;
 use crate::hardware_query::HardwareSelection;
-use crate::pipeline::{Material, MaterialId, Pipeline};
+use crate::pipeline::{Material, Pipeline};
 use anyhow::Result;
 use erupt::{
     extensions::{ext_debug_utils, khr_surface, khr_swapchain},
     vk1_0 as vk, DeviceLoader, InstanceLoader,
 };
+use crate::engine::MaterialId;
 use std::collections::HashMap;
 
 pub struct Swapchain {
@@ -188,6 +189,10 @@ impl Swapchain {
     pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {
         unsafe {
             device.device_wait_idle().unwrap();
+        }
+
+        for pipeline in self.pipelines.values_mut() {
+            pipeline.free(device);
         }
 
         // Free command buffers in one batch
