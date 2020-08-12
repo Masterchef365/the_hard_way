@@ -6,8 +6,8 @@ use std::ffi::CString;
 /// Represents a backing pipeline that can render an object
 /// with the material from which it was created.
 pub struct Pipeline {
-    pipeline: vk::Pipeline,
-    layout: vk::PipelineLayout,
+    pub pipeline: vk::Pipeline,
+    pub layout: vk::PipelineLayout,
     freed: bool,
 }
 

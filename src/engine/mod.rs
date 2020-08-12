@@ -115,12 +115,16 @@ impl Engine {
         create_info: vk::BufferCreateInfoBuilder,
         data: &[T],
     ) -> Result<AllocatedBuffer> {
-        let create_info = create_info.size((data.len() * std::mem::size_of::<T>()) as u64);
+        let size = data.len() * std::mem::size_of::<T>();
+        anyhow::ensure!(size > 0, "Array and type size must be nonzero");
+
+        let create_info = create_info.size(size as u64);
         let buffer = unsafe { self.device.create_buffer(&create_info, None, None) }.result()?;
         let allocation = self
             .allocator
             .allocate(&self.device, buffer, allocator::MemoryTypeFinder::dynamic())
             .result()?;
+
         let mut map = allocation.map(&self.device, ..).result()?;
         map.import(bytemuck::cast_slice(data));
         map.unmap(&self.device).result()?;

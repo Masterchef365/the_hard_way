@@ -8,15 +8,10 @@ use erupt::{
 use nalgebra::{Matrix4, Point2, Point3};
 
 impl Engine {
-    pub fn next_frame(
-        &mut self,
-        camera: &Matrix4<f32>,
-        time: f32,
-    ) -> Result<()> {
+    pub fn next_frame(&mut self, camera: &Matrix4<f32>, time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
-            let mut swapchain =
-            Swapchain::new(
+            let mut swapchain = Swapchain::new(
                 &self.instance,
                 &self.device,
                 &self.hardware,
@@ -50,7 +45,9 @@ impl Engine {
         // Reset and write command buffers for this frame
         let command_buffer = swapchain_image.command_buffer;
         unsafe {
-            self.device.reset_command_buffer(command_buffer, None).result()?;
+            self.device
+                .reset_command_buffer(command_buffer, None)
+                .result()?;
 
             let begin_info = vk::CommandBufferBeginInfoBuilder::new();
             self.device
@@ -60,7 +57,7 @@ impl Engine {
             // Set render pass
             let clear_values = [vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.0, 1.0, 0.0, 1.0],
+                    float32: [0.0, 0.0, 0.0, 1.0],
                 },
             }];
             let begin_info = vk::RenderPassBeginInfoBuilder::new()
@@ -77,6 +74,43 @@ impl Engine {
                 &begin_info,
                 vk::SubpassContents::INLINE,
             );
+            drop(swapchain_image);
+
+            for (pipeline_id, pipeline) in &swapchain.pipelines {
+                self.device.cmd_bind_pipeline(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    pipeline.pipeline,
+                );
+                for object in self.objects.values().filter(|o| o.material == *pipeline_id) {
+                    self.device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[object.vertices.buffer],
+                        &[0],
+                    );
+                    self.device.cmd_bind_index_buffer(
+                        command_buffer,
+                        object.indices.buffer,
+                        0,
+                        vk::IndexType::UINT16,
+                    );
+                    /*
+                    let descriptor_sets = [object.descriptor_sets[idx]];
+                    self.device.cmd_bind_descriptor_sets(
+                        command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        pipeline_layout,
+                        0,
+                        &descriptor_sets,
+                        &[],
+                    );
+                    */
+
+                    self.device
+                        .cmd_draw_indexed(command_buffer, object.n_indices, 1, 0, 0, 0);
+                }
+            }
 
             self.device.cmd_end_render_pass(command_buffer);
 
@@ -85,7 +119,7 @@ impl Engine {
 
         // Submit to the queue
         let wait_semaphores = [frame.image_available];
-        let command_buffers = [swapchain_image.command_buffer];
+        let command_buffers = [command_buffer];
         let signal_semaphores = [frame.render_finished];
         let submit_info = vk::SubmitInfoBuilder::new()
             .wait_semaphores(&wait_semaphores)
