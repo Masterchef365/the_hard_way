@@ -105,9 +105,10 @@ impl Engine {
         unsafe {
             self.device.device_wait_idle().unwrap();
         } // Figure out how not to wait?
-        let object = self.objects.remove(&id).unwrap();
-        self.free_buffer(object.vertices);
-        self.free_buffer(object.indices);
+        if let Some(object) = self.objects.remove(&id) {
+            self.free_buffer(object.vertices);
+            self.free_buffer(object.indices);
+        }
     }
 
     fn allocate_buffer<T: bytemuck::Pod>(
