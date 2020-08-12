@@ -179,16 +179,9 @@ impl Swapchain {
         Ok(())
     }
 
-    pub fn remove_pipeline(&mut self, device: &DeviceLoader, id: MaterialId) -> Result<()> {
-        if let Some(mut mat) = self.pipelines.remove(&id) {
-            mat.free(device);
-            Ok(())
-        } else {
-            Err(anyhow::format_err!(
-                "Tried to free non-existant pipeline {:?}",
-                id
-            ))
-        }
+    pub fn remove_pipeline(&mut self, device: &DeviceLoader, id: MaterialId) {
+        let mut mat = self.pipelines.remove(&id).unwrap();
+        mat.free(device);
     }
 
     pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {

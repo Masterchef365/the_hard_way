@@ -3,6 +3,10 @@ use crate::Engine;
 impl Drop for Engine {
     fn drop(&mut self) {
         unsafe {
+            let ids = self.objects.keys().copied().collect::<Vec<_>>();
+            for id in ids {
+                self.remove_object(id);
+            }
             for material in self.materials.values_mut() {
                 material.free(&self.device);
             }

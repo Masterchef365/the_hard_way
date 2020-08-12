@@ -15,6 +15,7 @@ use std::{
     os::raw::c_char,
 };
 use winit::window::Window;
+use std::collections::HashMap;
 
 impl Engine {
     pub fn new(window: &Window, app_name: &str) -> Result<Self> {
@@ -109,6 +110,7 @@ impl Engine {
             allocator,
             swapchain: None,
             materials: Default::default(),
+            objects: Default::default(),
             next_material_id: 0,
             next_object_id: 0,
         })

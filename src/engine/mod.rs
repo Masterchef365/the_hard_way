@@ -26,6 +26,7 @@ pub struct ObjectId(u32);
 
 pub struct Engine {
     materials: HashMap<MaterialId, Material>,
+    objects: HashMap<ObjectId, Object>,
     swapchain: Option<Swapchain>,
     allocator: allocator::Allocator,
     frame_sync: FrameSync,
@@ -57,19 +58,12 @@ impl Engine {
         Ok(id)
     }
 
-    pub fn unload_material(&mut self, material: MaterialId) -> Result<()> {
-        if let Some(mut mat) = self.materials.remove(&material) {
-            if let Some(swapchain) = &mut self.swapchain {
-                swapchain.remove_pipeline(&self.device, material)?;
-            }
-            mat.free(&self.device);
-            Ok(())
-        } else {
-            Err(anyhow::format_err!(
-                "Tried to free non-existant material {:?}",
-                material
-            ))
+    pub fn unload_material(&mut self, material: MaterialId) {
+        let mut mat = self.materials.remove(&material).unwrap();
+        if let Some(swapchain) = &mut self.swapchain {
+            swapchain.remove_pipeline(&self.device, material);
         }
+        mat.free(&self.device);
     }
 
     pub fn add_object(
@@ -78,20 +72,78 @@ impl Engine {
         indices: &[u16],
         material: MaterialId,
     ) -> Result<ObjectId> {
-        let id = self.next_object_id;
+        let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
-        Ok(ObjectId(id))
+
+        let create_info = vk::BufferCreateInfoBuilder::new()
+            .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let vertices = self.allocate_buffer(create_info, vertices)?;
+
+        let create_info = vk::BufferCreateInfoBuilder::new()
+            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+        let n_indices = indices.len() as u32;
+        let indices = self.allocate_buffer(create_info, indices)?;
+
+        let object = Object {
+            material,
+            indices,
+            vertices,
+            n_indices,
+            transform: Matrix4::identity(),
+            freed: false,
+        };
+
+        self.objects.insert(id, object);
+
+        Ok(id)
     }
 
-    pub fn remove_object(&mut self, mesh: ObjectId) {
-        todo!()
+    pub fn remove_object(&mut self, id: ObjectId) {
+        unsafe {
+            self.device.device_wait_idle().unwrap();
+        } // Figure out how not to wait?
+        let object = self.objects.remove(&id).unwrap();
+        self.free_buffer(object.vertices);
+        self.free_buffer(object.indices);
+    }
+
+    fn allocate_buffer<T: bytemuck::Pod>(
+        &mut self,
+        create_info: vk::BufferCreateInfoBuilder,
+        data: &[T],
+    ) -> Result<AllocatedBuffer> {
+        let create_info = create_info.size((data.len() * std::mem::size_of::<T>()) as u64);
+        let buffer = unsafe { self.device.create_buffer(&create_info, None, None) }.result()?;
+        let allocation = self
+            .allocator
+            .allocate(&self.device, buffer, allocator::MemoryTypeFinder::dynamic())
+            .result()?;
+        let mut map = allocation.map(&self.device, ..).result()?;
+        map.import(bytemuck::cast_slice(data));
+        map.unmap(&self.device).result()?;
+
+        Ok(AllocatedBuffer {
+            buffer,
+            allocation,
+            freed: false,
+        })
+    }
+
+    fn free_buffer(&mut self, buffer: AllocatedBuffer) {
+        unsafe {
+            self.device.destroy_buffer(Some(buffer.buffer), None);
+            self.allocator.free(&self.device, buffer.allocation);
+        }
     }
 }
 
-/*
 pub struct AllocatedBuffer {
     pub buffer: vk::Buffer,
     pub allocation: allocator::Allocation<vk::Buffer>,
+    freed: bool,
 }
 
 pub struct Object {
@@ -99,7 +151,6 @@ pub struct Object {
     pub vertices: AllocatedBuffer,
     pub n_indices: u32,
     pub material: MaterialId,
-    pub mesh: MeshId,
     pub transform: Matrix4<f32>,
+    freed: bool,
 }
-*/
