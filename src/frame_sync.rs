@@ -30,7 +30,7 @@ impl FrameSync {
         })
     }
 
-    pub fn next_frame(&mut self, device: &DeviceLoader) -> &mut Frame {
+    pub fn next_frame(&mut self, device: &DeviceLoader) -> (usize, &mut Frame) {
         self.frame_idx = (self.frame_idx + 1) % self.frames.len();
         let frame = &mut self.frames[self.frame_idx];
         unsafe {
@@ -38,7 +38,7 @@ impl FrameSync {
                 .wait_for_fences(&[frame.in_flight_fence], true, u64::MAX)
                 .unwrap();
         }
-        frame
+        (self.frame_idx, frame)
     }
 
     pub fn free(&mut self, device: &DeviceLoader) {

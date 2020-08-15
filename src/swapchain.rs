@@ -1,4 +1,4 @@
-use crate::frame_sync::Frame;
+            use crate::frame_sync::Frame;
 use crate::hardware_query::HardwareSelection;
 use crate::pipeline::{Material, Pipeline};
 use anyhow::Result;
@@ -21,8 +21,6 @@ pub struct Swapchain {
 pub struct SwapChainImage {
     pub framebuffer: vk::Framebuffer,
     pub image_view: vk::ImageView,
-    pub command_buffer: vk::CommandBuffer,
-    pub uniform_buffer: vk:: 
     /// Whether or not the frame which this swapchain image is dependent on is in flight or not
     pub in_flight: vk::Fence,
     freed: bool,
@@ -71,7 +69,6 @@ impl Swapchain {
         device: &DeviceLoader,
         hardware: &HardwareSelection,
         surface: khr_surface::SurfaceKHR,
-        command_pool: vk::CommandPool,
     ) -> Result<Self> {
         let surface_caps = unsafe {
             instance.get_physical_device_surface_capabilities_khr(
@@ -86,6 +83,7 @@ impl Swapchain {
         if surface_caps.max_image_count > 0 && image_count > surface_caps.max_image_count {
             image_count = surface_caps.max_image_count;
         }
+        //TODO: If necessary, error out when the numebr of swapchain images changes
 
         let create_info = khr_swapchain::SwapchainCreateInfoKHRBuilder::new()
             .surface(surface)
@@ -140,27 +138,16 @@ impl Swapchain {
         let render_pass =
             unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
 
-        // Allocate command buffers
-        let allocate_info = vk::CommandBufferAllocateInfoBuilder::new()
-            .command_pool(command_pool)
-            .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(swapchain_images.len() as u32);
-
-        let command_buffers =
-            unsafe { device.allocate_command_buffers(&allocate_info) }.result()?;
-
         // Build swapchain image views and buffers
         let images = swapchain_images
             .iter()
-            .zip(command_buffers.into_iter())
-            .map(|(image, command_buffer)| {
+            .map(|image| {
                 SwapChainImage::new(
                     &device,
                     render_pass,
                     image,
                     surface_caps.current_extent,
                     hardware,
-                    command_buffer,
                 )
             })
             .collect::<Result<Vec<_>>>()?;
@@ -185,23 +172,13 @@ impl Swapchain {
         mat.free(device);
     }
 
-    pub fn free(&mut self, device: &DeviceLoader, command_pool: vk::CommandPool) {
+    pub fn free(&mut self, device: &DeviceLoader) {
         unsafe {
             device.device_wait_idle().unwrap();
         }
 
         for pipeline in self.pipelines.values_mut() {
             pipeline.free(device);
-        }
-
-        // Free command buffers in one batch
-        let buffers = self
-            .images
-            .iter()
-            .map(|img| img.command_buffer)
-            .collect::<Vec<_>>();
-        unsafe {
-            device.free_command_buffers(command_pool, &buffers);
         }
 
         for mut image in self.images.drain(..) {
@@ -223,7 +200,6 @@ impl SwapChainImage {
         swapchain_image: &vk::Image,
         extent: vk::Extent2D,
         hardware: &HardwareSelection,
-        command_buffer: vk::CommandBuffer,
     ) -> Result<Self> {
         let in_flight = vk::Fence::null();
 
@@ -263,13 +239,10 @@ impl SwapChainImage {
             framebuffer,
             image_view,
             in_flight,
-            command_buffer,
             freed: false,
         })
     }
 
-    /// Warning: Does not free the associated command buffer. These are expected to be done in a
-    /// batch.
     pub fn free(&mut self, device: &DeviceLoader) {
         unsafe {
             device.destroy_framebuffer(Some(self.framebuffer), None);

@@ -7,3 +7,8 @@ And also we should probably restructure the swapchain so that not everything is 
     * You will want to group objects by pipeline/material
 * Uniforms and descriptor sets
     * Upload camera matrix each frame
+
+The swapchain thing should be simplified, command buffers should be moved out
+
+Need to have one uniform buffer per frame, because we don't want to update it while it's being used
+Each pipeline has a layout
