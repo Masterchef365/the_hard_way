@@ -17,6 +17,8 @@ use std::{
 use winit::window::Window;
 use std::collections::HashMap;
 
+const FRAMES_IN_FLIGHT: usize = 2;
+
 impl Engine {
     pub fn new(window: &Window, app_name: &str) -> Result<Self> {
         // Entry
@@ -87,8 +89,17 @@ impl Engine {
         let command_pool =
             unsafe { device.create_command_pool(&create_info, None, None) }.result()?;
 
+        // Allocate command buffers
+        let allocate_info = vk::CommandBufferAllocateInfoBuilder::new()
+            .command_pool(command_pool)
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_buffer_count(FRAMES_IN_FLIGHT as u32);
+
+        let command_buffers =
+            unsafe { device.allocate_command_buffers(&allocate_info) }.result()?;
+
         // Frame synchronization
-        let frame_sync = FrameSync::new(&device, 2)?;
+        let frame_sync = FrameSync::new(&device, FRAMES_IN_FLIGHT)?;
 
         // Device memory allocator
         let allocator = allocator::Allocator::new(
@@ -108,6 +119,7 @@ impl Engine {
             command_pool,
             frame_sync,
             allocator,
+            command_buffers,
             swapchain: None,
             materials: Default::default(),
             objects: Default::default(),

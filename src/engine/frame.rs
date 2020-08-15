@@ -16,7 +16,6 @@ impl Engine {
                 &self.device,
                 &self.hardware,
                 self.surface,
-                self.command_pool,
             )?;
             for (id, material) in self.materials.iter() {
                 swapchain.add_pipeline(&self.device, *id, material)?;
@@ -28,7 +27,7 @@ impl Engine {
         let extent = swapchain.extent;
 
         // Wait for the next frame to become available
-        let frame = self.frame_sync.next_frame(&self.device);
+        let (frame_idx, frame) = self.frame_sync.next_frame(&self.device);
 
         // Wait for a swapchain image to become available and assign it the current frame
         let swapchain_image = swapchain.next_image(&self.device, frame);
@@ -43,7 +42,7 @@ impl Engine {
         };
 
         // Reset and write command buffers for this frame
-        let command_buffer = swapchain_image.command_buffer;
+        let command_buffer = self.command_buffers[frame_idx];
         unsafe {
             self.device
                 .reset_command_buffer(command_buffer, None)

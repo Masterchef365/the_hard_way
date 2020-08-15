@@ -31,6 +31,7 @@ pub struct Engine {
     allocator: allocator::Allocator,
     frame_sync: FrameSync,
     command_pool: vk::CommandPool,
+    command_buffers: Vec<vk::CommandBuffer>,
     queue: vk::Queue,
     device: DeviceLoader,
     hardware: HardwareSelection,
