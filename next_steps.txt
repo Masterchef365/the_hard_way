@@ -1,3 +1,7 @@
+Needs to have one uniform buffer per swapchain image
+So we need to make allocations, which means we need access to the allocator
+And also we should probably restructure the swapchain so that not everything is linked together
+
 * Vertex and index buffers for each object
 * Fill out the command buffers for every object, binding appropriate pipelines as necessary
     * You will want to group objects by pipeline/material

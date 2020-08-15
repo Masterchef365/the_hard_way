@@ -1,13 +1,14 @@
 use crate::vertex::Vertex;
 use anyhow::Result;
-use erupt::{vk1_0 as vk, DeviceLoader, utils};
+use erupt::{utils, vk1_0 as vk, DeviceLoader};
 use std::ffi::CString;
 
 /// Represents a backing pipeline that can render an object
 /// with the material from which it was created.
 pub struct Pipeline {
     pub pipeline: vk::Pipeline,
-    pub layout: vk::PipelineLayout,
+    pub pipeline_layout: vk::PipelineLayout,
+    pub descriptor_set_layout: vk::DescriptorSetLayout,
     freed: bool,
 }
 
@@ -16,7 +17,6 @@ pub struct Material {
     draw_type: DrawType,
     vertex: vk::ShaderModule,
     fragment: vk::ShaderModule,
-    //descriptor_set_layout: vk::DescriptorSetLayout,
     freed: bool,
 }
 
@@ -27,7 +27,12 @@ pub enum DrawType {
 }
 
 impl Material {
-    pub fn new(device: &DeviceLoader, vertex_src: &[u8], fragment_src: &[u8], draw_type: DrawType) -> Result<Self> {
+    pub fn new(
+        device: &DeviceLoader,
+        vertex_src: &[u8],
+        fragment_src: &[u8],
+        draw_type: DrawType,
+    ) -> Result<Self> {
         let vert_decoded = utils::decode_spv(vertex_src).unwrap();
         let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&vert_decoded);
         let vertex = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
@@ -35,21 +40,6 @@ impl Material {
         let frag_decoded = utils::decode_spv(fragment_src).unwrap();
         let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&frag_decoded);
         let fragment = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
-        // Probably want multiple (model vs camera), but I think we'll leave it out for now..
-        /*
-        let ubo_layout_bindings = [vk::DescriptorSetLayoutBindingBuilder::new()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .stage_flags(vk::ShaderStageFlags::VERTEX)
-            .descriptor_count(1)];
-
-        let descriptor_set_layout_ci =
-            vk::DescriptorSetLayoutCreateInfoBuilder::new().bindings(&ubo_layout_bindings);
-
-        let descriptor_set_layout =
-            unsafe { device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
-                .result()?;
-        */
 
         Ok(Self {
             draw_type,
@@ -75,6 +65,19 @@ impl Pipeline {
         render_pass: vk::RenderPass,
         extent: vk::Extent2D,
     ) -> Result<Self> {
+        let bindings = [vk::DescriptorSetLayoutBindingBuilder::new()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::VERTEX)];
+
+        let descriptor_set_layout_ci =
+            vk::DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
+
+        let descriptor_set_layout =
+            unsafe { device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
+                .result()?;
+
         let attribute_descriptions = Vertex::get_attribute_descriptions();
         let binding_descriptions = [Vertex::binding_description()];
 
@@ -146,10 +149,10 @@ impl Pipeline {
                 .name(&entry_point),
         ];
 
-        //let descriptor_set_layouts = [material.descriptor_set_layout];
+        let descriptor_set_layouts = [descriptor_set_layout];
 
-        let create_info = vk::PipelineLayoutCreateInfoBuilder::new();
-        //.set_layouts(&descriptor_set_layouts);
+        let create_info = vk::PipelineLayoutCreateInfoBuilder::new()
+            .set_layouts(&descriptor_set_layouts);
 
         let pipeline_layout =
             unsafe { device.create_pipeline_layout(&create_info, None, None) }.result()?;
@@ -171,7 +174,8 @@ impl Pipeline {
 
         Ok(Self {
             pipeline,
-            layout: pipeline_layout,
+            pipeline_layout,
+            descriptor_set_layout,
             freed: false,
         })
     }
@@ -179,7 +183,8 @@ impl Pipeline {
     pub fn free(&mut self, device: &DeviceLoader) {
         unsafe {
             device.destroy_pipeline(Some(self.pipeline), None);
-            device.destroy_pipeline_layout(Some(self.layout), None);
+            device.destroy_pipeline_layout(Some(self.pipeline_layout), None);
+            device.destroy_descriptor_set_layout(Some(self.descriptor_set_layout), None);
         }
         self.freed = true;
     }

@@ -2,7 +2,6 @@ use anyhow::Result;
 use nalgebra::Matrix4;
 use std::fs;
 use the_hard_way::{Engine, DrawType, Vertex};
-//use the_hard_way::{DrawType, Engine, Object};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -46,7 +45,7 @@ fn main() -> Result<()> {
         },
     ];
 
-    let mesh = engine.add_object(&vertices[..], &indices[..], material);
+    let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
 
     let start_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
@@ -63,6 +62,9 @@ fn main() -> Result<()> {
             engine
                 .next_frame(&Matrix4::identity(), time)
                 .expect("Frame failed to render");
+            if time > 3.0 {
+                engine.remove_object(mesh);
+            }
             /*
                let end_time = std::time::Instant::now();
                println!(

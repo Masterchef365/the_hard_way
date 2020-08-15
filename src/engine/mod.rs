@@ -85,6 +85,7 @@ impl Engine {
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
 
         let n_indices = indices.len() as u32;
+        //TODO: Staging buffer, use faster (non CPU-visible) memory
         let indices = self.allocate_buffer(create_info, indices)?;
 
         let object = Object {
@@ -155,4 +156,7 @@ pub struct Object {
     pub material: MaterialId,
     pub transform: Matrix4<f32>,
     freed: bool,
+}
+
+impl AllocatedBuffer {
 }

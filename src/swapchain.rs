@@ -22,6 +22,7 @@ pub struct SwapChainImage {
     pub framebuffer: vk::Framebuffer,
     pub image_view: vk::ImageView,
     pub command_buffer: vk::CommandBuffer,
+    pub uniform_buffer: vk:: 
     /// Whether or not the frame which this swapchain image is dependent on is in flight or not
     pub in_flight: vk::Fence,
     freed: bool,

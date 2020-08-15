@@ -4,6 +4,8 @@ mod frame_sync;
 mod swapchain;
 mod pipeline;
 mod vertex;
+mod uniform_buffer_object;
+mod camera;
 pub use engine::*;
 pub use pipeline::DrawType;
 pub use vertex::Vertex;
