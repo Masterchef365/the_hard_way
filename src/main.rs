@@ -1,12 +1,14 @@
 use anyhow::Result;
-use nalgebra::{Point3, Matrix4};
+use nalgebra::{Matrix4, Point3};
 use std::fs;
-use the_hard_way::{Engine, DrawType, Vertex, Camera};
+use the_hard_way::{Camera, DrawType, Engine, Vertex};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use std::time::Duration;
+use std::io::Write;
 
 const APP_NAME: &str = "Engine demo app";
 
@@ -46,14 +48,18 @@ fn main() -> Result<()> {
     ];
 
     let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
+    let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
 
     let mut camera = Camera {
-        eye: Point3::new(-1.0, -1.0, -1.0),
+        eye: Point3::new(-1.0, 1.0, -1.0),
         at: Point3::origin(),
         fovy: 45.0f32.to_radians(),
         clip_near: 0.1,
         clip_far: 100.0,
     };
+
+    let target_frame_time = Duration::from_micros(1_000_000 / 60);
+    let mut frame_count = 0;
 
     let start_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
@@ -65,22 +71,33 @@ fn main() -> Result<()> {
             _ => (),
         },
         Event::MainEventsCleared => {
-            let current_time = std::time::Instant::now();
-            let time = (current_time - start_time).as_millis() as f32 / 1000.0;
+            let frame_start_time = std::time::Instant::now();
+            let time_var = (frame_start_time - start_time).as_millis() as f32 / 1000.0;
+
             engine
-                .next_frame(&camera, time)
+                .next_frame(&camera, time_var)
                 .expect("Frame failed to render");
-            let transform = Matrix4::from_euler_angles(0.0, time * 8.0, 0.0);
+            let frame_end_time = std::time::Instant::now();
+            frame_count += 1;
+
+            let frame_duration = frame_end_time - frame_start_time;
+            print!(
+                "\r\x1b[1KFPS: Actual: {} Possible: {}\r",
+                frame_count / (frame_end_time - start_time).as_secs().max(1),
+                1_000_000 / frame_duration.as_micros(),
+            );
+            std::io::stdout().lock().flush();
+
+            let transform = Matrix4::from_euler_angles(0.0, time_var * 8.0, 0.0);
             engine.set_transform(mesh, transform);
+            let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
+            engine.set_transform(mesh2, transform);
             //camera.eye[0] = time.cos();
             //camera.eye[2] = time.sin();
-            /*
-               let end_time = std::time::Instant::now();
-               println!(
-               "FPS: {}",
-               1_000_000.0 / (end_time - current_time).as_micros() as f32
-               );
-               */
+
+            if frame_duration < target_frame_time {
+                std::thread::sleep(target_frame_time - frame_duration);
+            }
         }
         _ => (),
     })
