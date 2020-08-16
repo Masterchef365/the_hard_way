@@ -8,7 +8,6 @@ use std::ffi::CString;
 pub struct Pipeline {
     pub pipeline: vk::Pipeline,
     pub pipeline_layout: vk::PipelineLayout,
-    pub descriptor_set_layout: vk::DescriptorSetLayout,
     freed: bool,
 }
 
@@ -63,21 +62,9 @@ impl Pipeline {
         device: &DeviceLoader,
         material: &Material,
         render_pass: vk::RenderPass,
+        descriptor_set_layout: vk::DescriptorSetLayout,
         extent: vk::Extent2D,
     ) -> Result<Self> {
-        let bindings = [vk::DescriptorSetLayoutBindingBuilder::new()
-            .binding(0)
-            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
-            .descriptor_count(1)
-            .stage_flags(vk::ShaderStageFlags::VERTEX)];
-
-        let descriptor_set_layout_ci =
-            vk::DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
-
-        let descriptor_set_layout =
-            unsafe { device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
-                .result()?;
-
         let attribute_descriptions = Vertex::get_attribute_descriptions();
         let binding_descriptions = [Vertex::binding_description()];
 
@@ -117,7 +104,7 @@ impl Pipeline {
             .polygon_mode(vk::PolygonMode::FILL)
             .line_width(1.0)
             .cull_mode(vk::CullModeFlags::BACK)
-            .front_face(vk::FrontFace::CLOCKWISE)
+            .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
             .depth_clamp_enable(false);
 
         let multisampling = vk::PipelineMultisampleStateCreateInfoBuilder::new()
@@ -175,7 +162,6 @@ impl Pipeline {
         Ok(Self {
             pipeline,
             pipeline_layout,
-            descriptor_set_layout,
             freed: false,
         })
     }
@@ -184,7 +170,6 @@ impl Pipeline {
         unsafe {
             device.destroy_pipeline(Some(self.pipeline), None);
             device.destroy_pipeline_layout(Some(self.pipeline_layout), None);
-            device.destroy_descriptor_set_layout(Some(self.descriptor_set_layout), None);
         }
         self.freed = true;
     }

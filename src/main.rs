@@ -1,7 +1,7 @@
 use anyhow::Result;
-use nalgebra::Matrix4;
+use nalgebra::Point3;
 use std::fs;
-use the_hard_way::{Engine, DrawType, Vertex};
+use the_hard_way::{Engine, DrawType, Vertex, Camera};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -47,6 +47,14 @@ fn main() -> Result<()> {
 
     let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
 
+    let mut camera = Camera {
+        eye: Point3::new(-1.0, -1.0, -1.0),
+        at: Point3::origin(),
+        fovy: 45.0f32.to_radians(),
+        clip_near: 0.1,
+        clip_far: 100.0,
+    };
+
     let start_time = std::time::Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
         Event::NewEvents(StartCause::Init) => {
@@ -60,11 +68,10 @@ fn main() -> Result<()> {
             let current_time = std::time::Instant::now();
             let time = (current_time - start_time).as_millis() as f32 / 1000.0;
             engine
-                .next_frame(&Matrix4::identity(), time)
+                .next_frame(&camera, time)
                 .expect("Frame failed to render");
-            if time > 3.0 {
-                engine.remove_object(mesh);
-            }
+            camera.eye[0] = time.cos();
+            camera.eye[2] = time.sin();
             /*
                let end_time = std::time::Instant::now();
                println!(

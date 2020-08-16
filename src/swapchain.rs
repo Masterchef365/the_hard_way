@@ -9,6 +9,8 @@ use erupt::{
 use crate::engine::MaterialId;
 use std::collections::HashMap;
 
+/// Describes everything that changes when the swapchain changes. This isn't ideal, and will likely
+/// be broken up later.
 pub struct Swapchain {
     pub swapchain: khr_swapchain::SwapchainKHR,
     pub render_pass: vk::RenderPass,
@@ -162,8 +164,8 @@ impl Swapchain {
         })
     }
 
-    pub fn add_pipeline(&mut self, device: &DeviceLoader, id: MaterialId, material: &Material) -> Result<()> {
-        self.pipelines.insert(id, Pipeline::new(&device, material, self.render_pass, self.extent)?);
+    pub fn add_pipeline(&mut self, device: &DeviceLoader, descriptor_set_layout: vk::DescriptorSetLayout, id: MaterialId, material: &Material) -> Result<()> {
+        self.pipelines.insert(id, Pipeline::new(&device, material, self.render_pass, descriptor_set_layout, self.extent)?);
         Ok(())
     }
 

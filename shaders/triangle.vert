@@ -3,12 +3,11 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(binding = 0) uniform Camera {
-    mat4 view;
-    mat4 proj;
+    mat4 matrix;
 } cam;
-layout(binding = 1) uniform Model {
-    mat4 model;
-} model;
+//layout(push_constant) uniform Model {
+    //mat4 model;
+//} model;
 
 layout(location = 0) in vec2 inPosition;
 layout(location = 1) in vec3 inColor;
@@ -16,7 +15,7 @@ layout(location = 1) in vec3 inColor;
 layout(location = 0) out vec3 fragColor;
 
 void main() {
-    gl_Position = cam.proj * cam.view * model.model * vec4(inPosition, 0.0, 1.0);
+    gl_Position = cam.matrix * vec4(inPosition, 0.0, 1.0);
     fragColor = inColor;
 }
 

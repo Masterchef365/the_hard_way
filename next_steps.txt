@@ -12,3 +12,5 @@ The swapchain thing should be simplified, command buffers should be moved out
 
 Need to have one uniform buffer per frame, because we don't want to update it while it's being used
 Each pipeline has a layout
+
+Only one UBO for the camera, then a push constant per object

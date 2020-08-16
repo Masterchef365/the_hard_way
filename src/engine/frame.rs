@@ -1,4 +1,5 @@
 use super::Engine;
+use crate::camera::Camera;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
 use erupt::{
@@ -8,23 +9,20 @@ use erupt::{
 use nalgebra::{Matrix4, Point2, Point3};
 
 impl Engine {
-    pub fn next_frame(&mut self, camera: &Matrix4<f32>, time: f32) -> Result<()> {
+    pub fn next_frame(&mut self, camera: &Camera, time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
-            let mut swapchain = Swapchain::new(
-                &self.instance,
-                &self.device,
-                &self.hardware,
-                self.surface,
-            )?;
+            let mut swapchain =
+                Swapchain::new(&self.instance, &self.device, &self.hardware, self.surface)?;
             for (id, material) in self.materials.iter() {
-                swapchain.add_pipeline(&self.device, *id, material)?;
+                swapchain.add_pipeline(&self.device, self.descriptor_set_layout, *id, material)?;
             }
             self.swapchain = Some(swapchain);
         }
         let swapchain = self.swapchain.as_mut().unwrap();
         let render_pass = swapchain.render_pass; // These two needed for borrowing reasons
         let extent = swapchain.extent;
+        let aspect = extent.width as f32 / extent.height as f32;
 
         // Wait for the next frame to become available
         let (frame_idx, frame) = self.frame_sync.next_frame(&self.device);
@@ -41,8 +39,13 @@ impl Engine {
             }
         };
 
+        // Upload camera matrix
+        self.camera_ubos[frame_idx]
+            .map(&self.device, &[*camera.matrix(aspect).as_ref()]);
+
         // Reset and write command buffers for this frame
         let command_buffer = self.command_buffers[frame_idx];
+        let descriptor_set = self.descriptor_sets[frame_idx];
         unsafe {
             self.device
                 .reset_command_buffer(command_buffer, None)
@@ -73,7 +76,6 @@ impl Engine {
                 &begin_info,
                 vk::SubpassContents::INLINE,
             );
-            drop(swapchain_image);
 
             for (pipeline_id, pipeline) in &swapchain.pipelines {
                 self.device.cmd_bind_pipeline(
@@ -81,30 +83,44 @@ impl Engine {
                     vk::PipelineBindPoint::GRAPHICS,
                     pipeline.pipeline,
                 );
-                for object in self.objects.values().filter(|o| o.material == *pipeline_id) {
+
+                self.device.cmd_bind_descriptor_sets(
+                    command_buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    pipeline.pipeline_layout,
+                    0,
+                    &[descriptor_set],
+                    &[],
+                );
+
+                for object in self
+                    .objects
+                    .values_mut()
+                    .filter(|o| o.material == *pipeline_id)
+                {
                     self.device.cmd_bind_vertex_buffers(
                         command_buffer,
                         0,
                         &[object.vertices.buffer],
                         &[0],
                     );
+
                     self.device.cmd_bind_index_buffer(
                         command_buffer,
                         object.indices.buffer,
                         0,
                         vk::IndexType::UINT16,
                     );
-                    /*
-                    let descriptor_sets = [object.descriptor_sets[idx]];
+
+                    let descriptor_sets = [self.descriptor_sets[frame_idx]];
                     self.device.cmd_bind_descriptor_sets(
                         command_buffer,
                         vk::PipelineBindPoint::GRAPHICS,
-                        pipeline_layout,
+                        pipeline.pipeline_layout,
                         0,
                         &descriptor_sets,
                         &[],
                     );
-                    */
 
                     self.device
                         .cmd_draw_indexed(command_buffer, object.n_indices, 1, 0, 0, 0);

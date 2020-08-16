@@ -16,6 +16,7 @@ use std::{
 };
 use winit::window::Window;
 use std::collections::HashMap;
+use crate::allocated_buffer::AllocatedBuffer;
 
 const FRAMES_IN_FLIGHT: usize = 2;
 
@@ -67,13 +68,13 @@ impl Engine {
         let hardware = HardwareSelection::query(&instance, surface, &device_extensions)?;
 
         // Create logical device and queues
-        let queue_create_info = [vk::DeviceQueueCreateInfoBuilder::new()
+        let create_info = [vk::DeviceQueueCreateInfoBuilder::new()
             .queue_family_index(hardware.queue_family)
             .queue_priorities(&[1.0])];
 
         let physical_device_features = vk::PhysicalDeviceFeaturesBuilder::new();
         let create_info = vk::DeviceCreateInfoBuilder::new()
-            .queue_create_infos(&queue_create_info)
+            .queue_create_infos(&create_info)
             .enabled_features(&physical_device_features)
             .enabled_extension_names(&device_extensions)
             .enabled_layer_names(&device_layers);
@@ -98,19 +99,87 @@ impl Engine {
         let command_buffers =
             unsafe { device.allocate_command_buffers(&allocate_info) }.result()?;
 
-        // Frame synchronization
-        let frame_sync = FrameSync::new(&device, FRAMES_IN_FLIGHT)?;
-
         // Device memory allocator
-        let allocator = allocator::Allocator::new(
+        let mut allocator = allocator::Allocator::new(
             &instance,
             hardware.physical_device,
             allocator::AllocatorCreateInfo::default(),
         )
         .result()?;
 
+        // Create descriptor layout
+        let bindings = [vk::DescriptorSetLayoutBindingBuilder::new()
+            .binding(0)
+            .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+            .descriptor_count(1)
+            .stage_flags(vk::ShaderStageFlags::VERTEX)];
+
+        let descriptor_set_layout_ci =
+            vk::DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
+
+        let descriptor_set_layout =
+            unsafe { device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
+                .result()?;
+
+        // Create descriptor pool
+        let descriptor_set_layouts = [descriptor_set_layout];
+        let pool_sizes = [
+            vk::DescriptorPoolSizeBuilder::new()
+                ._type(vk::DescriptorType::UNIFORM_BUFFER)
+                .descriptor_count(FRAMES_IN_FLIGHT as u32)
+        ];
+        let create_info = vk::DescriptorPoolCreateInfoBuilder::new()
+            .pool_sizes(&pool_sizes)
+            .max_sets(FRAMES_IN_FLIGHT as u32);
+        let descriptor_pool = unsafe {
+            device.create_descriptor_pool(&create_info, None, None)
+        }.result()?;
+        
+        // Create descriptor sets
+        let layouts = vec![descriptor_set_layout; FRAMES_IN_FLIGHT];
+        let create_info = vk::DescriptorSetAllocateInfoBuilder::new()
+            .descriptor_pool(descriptor_pool)
+            .set_layouts(&layouts);
+
+        let descriptor_sets = unsafe {
+            device.allocate_descriptor_sets(&create_info)
+        }.result()?;
+
+        // Camera's UBOs
+        let create_info = vk::BufferCreateInfoBuilder::new()
+            .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let camera_ubos = (0..FRAMES_IN_FLIGHT).map(|_| 
+            AllocatedBuffer::new(1, create_info.clone(), &mut allocator, &device)).collect::<Result<Vec<_>>>()?;
+
+        // Bind buffers to descriptors
+        for (alloc, descriptor) in camera_ubos.iter().zip(descriptor_sets.iter()) {
+            let buffer_infos = [vk::DescriptorBufferInfoBuilder::new()
+                .buffer(alloc.buffer)
+                .offset(0)
+                .range(std::mem::size_of::<[[f32; 4]; 4]>() as u64)];
+
+            let writes = [vk::WriteDescriptorSetBuilder::new()
+                .buffer_info(&buffer_infos)
+                .descriptor_type(vk::DescriptorType::UNIFORM_BUFFER)
+                .dst_set(*descriptor)
+                .dst_binding(0)
+                .dst_array_element(0)];
+
+            unsafe {
+                device.update_descriptor_sets(&writes, &[]);
+            }
+        }
+
+        // Frame synchronization
+        let frame_sync = FrameSync::new(&device, FRAMES_IN_FLIGHT)?;
+
         Ok(Self {
             _entry: entry,
+            camera_ubos,
+            descriptor_set_layout,
+            descriptor_pool,
+            descriptor_sets,
             instance,
             surface,
             hardware,
