@@ -262,7 +262,6 @@ impl Swapchain {
         unsafe {
             device.device_wait_idle().result()?;
             device.destroy_image_view(Some(self.depth_image_view), None);
-            device.destroy_image(Some(self.depth_image), None);
         }
 
         allocator.free(device, self.depth_image_mem.take().unwrap());
