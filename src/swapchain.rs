@@ -120,7 +120,7 @@ impl Swapchain {
             .format(depth_format)
             .subresource_range(
                 vk::ImageSubresourceRangeBuilder::new()
-                    .aspect_mask(vk::ImageAspectFlags::COLOR)
+                    .aspect_mask(vk::ImageAspectFlags::DEPTH)
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
@@ -306,7 +306,7 @@ impl SwapChainImage {
             })
             .subresource_range(
                 vk::ImageSubresourceRangeBuilder::new()
-                    .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                    .aspect_mask(vk::ImageAspectFlags::COLOR)
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
@@ -315,6 +315,7 @@ impl SwapChainImage {
             );
 
         let image_view = unsafe { device.create_image_view(&create_info, None, None) }.result()?;
+
         let attachments = [
             image_view,
             depth_image_view,
