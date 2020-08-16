@@ -32,11 +32,11 @@ impl Material {
         fragment_src: &[u8],
         draw_type: DrawType,
     ) -> Result<Self> {
-        let vert_decoded = utils::decode_spv(vertex_src).unwrap();
+        let vert_decoded = utils::decode_spv(vertex_src)?;
         let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&vert_decoded);
         let vertex = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
 
-        let frag_decoded = utils::decode_spv(fragment_src).unwrap();
+        let frag_decoded = utils::decode_spv(fragment_src)?;
         let create_info = vk::ShaderModuleCreateInfoBuilder::new().code(&frag_decoded);
         let fragment = unsafe { device.create_shader_module(&create_info, None, None) }.result()?;
 

@@ -4,18 +4,15 @@ use crate::Engine;
 use anyhow::Result;
 use erupt::{
     cstr,
-    extensions::{ext_debug_utils, khr_surface, khr_swapchain},
-    utils::{self, allocator, surface},
+    extensions::{ext_debug_utils, khr_swapchain},
+    utils::{allocator, surface},
     vk1_0 as vk, DeviceLoader, EntryLoader, InstanceLoader,
 };
-use nalgebra::{Matrix4, Point2, Point3};
-use std::path::Path;
 use std::{
-    ffi::{CStr, CString},
+    ffi::CString,
     os::raw::c_char,
 };
 use winit::window::Window;
-use std::collections::HashMap;
 use crate::allocated_buffer::AllocatedBuffer;
 
 const FRAMES_IN_FLIGHT: usize = 2;
@@ -122,7 +119,6 @@ impl Engine {
                 .result()?;
 
         // Create descriptor pool
-        let descriptor_set_layouts = [descriptor_set_layout];
         let pool_sizes = [
             vk::DescriptorPoolSizeBuilder::new()
                 ._type(vk::DescriptorType::UNIFORM_BUFFER)

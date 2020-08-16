@@ -10,18 +10,15 @@ use crate::swapchain::Swapchain;
 use crate::vertex::Vertex;
 use anyhow::Result;
 use erupt::{
-    extensions::{ext_debug_utils, khr_surface, khr_swapchain},
+    extensions::khr_surface,
     utils::{
         self,
-        allocator::{self, Allocator},
-        surface,
+        allocator::Allocator,
     },
-    vk1_0 as vk, DeviceLoader, EntryLoader, InstanceLoader,
+    vk1_0 as vk, DeviceLoader, InstanceLoader,
 };
-use nalgebra::{Matrix4, Point2, Point3};
+use nalgebra::Matrix4;
 use std::collections::HashMap;
-use std::path::Path;
-use winit::window::Window;
 use crate::allocated_buffer::AllocatedBuffer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -69,11 +66,12 @@ impl Engine {
     }
 
     pub fn unload_material(&mut self, material: MaterialId) {
-        let mut mat = self.materials.remove(&material).unwrap();
+        if let Some(mut mat) = self.materials.remove(&material) {
+            mat.free(&self.device);
+        }
         if let Some(swapchain) = &mut self.swapchain {
             swapchain.remove_pipeline(&self.device, material);
         }
-        mat.free(&self.device);
     }
 
     pub fn add_object(
@@ -97,7 +95,7 @@ impl Engine {
             &mut self.allocator,
             &self.device,
         )?;
-        vertex_buffer.map(&self.device, vertices);
+        vertex_buffer.map(&self.device, vertices)?;
 
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::INDEX_BUFFER)
@@ -108,7 +106,7 @@ impl Engine {
             &mut self.allocator,
             &self.device,
         )?;
-        index_buffer.map(&self.device, indices);
+        index_buffer.map(&self.device, indices)?;
 
         let object = Object {
             material,
@@ -116,7 +114,6 @@ impl Engine {
             vertices: vertex_buffer,
             n_indices,
             transform: Matrix4::identity(),
-            freed: false,
         };
 
         self.objects.insert(id, object);
@@ -124,15 +121,16 @@ impl Engine {
         Ok(id)
     }
 
-    pub fn remove_object(&mut self, id: ObjectId) {
+    pub fn remove_object(&mut self, id: ObjectId) -> Result<()> {
         // Figure out how not to wait?
         unsafe {
-            self.device.device_wait_idle().unwrap();
+            self.device.device_wait_idle().result()?;
         }
         if let Some(mut object) = self.objects.remove(&id) {
-            object.vertices.free(&self.device, &mut self.allocator);
-            object.indices.free(&self.device, &mut self.allocator);
+            object.vertices.free(&self.device, &mut self.allocator)?;
+            object.indices.free(&self.device, &mut self.allocator)?;
         }
+        Ok(())
     }
 
     fn set_transform(&mut self, id: ObjectId, transform: Matrix4<f32>) {
@@ -148,5 +146,4 @@ pub struct Object {
     pub n_indices: u32,
     pub material: MaterialId,
     pub transform: Matrix4<f32>,
-    freed: bool,
 }

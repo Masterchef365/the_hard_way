@@ -5,16 +5,16 @@ impl Drop for Engine {
         unsafe {
             let ids = self.objects.keys().copied().collect::<Vec<_>>();
             for id in ids {
-                self.remove_object(id);
+                self.remove_object(id).unwrap();
             }
             for material in self.materials.values_mut() {
                 material.free(&self.device);
             }
             if let Some(swapchain) = &mut self.swapchain {
-                swapchain.free(&self.device);
+                swapchain.free(&self.device).unwrap();
             }
             for ubo in &mut self.camera_ubos {
-                ubo.free(&self.device, &mut self.allocator);
+                ubo.free(&self.device, &mut self.allocator).unwrap();
             }
             self.frame_sync.free(&self.device);
             self.device.destroy_descriptor_set_layout(Some(self.descriptor_set_layout), None);

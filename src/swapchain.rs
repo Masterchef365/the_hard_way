@@ -1,9 +1,9 @@
-            use crate::frame_sync::Frame;
+use crate::frame_sync::Frame;
 use crate::hardware_query::HardwareSelection;
 use crate::pipeline::{Material, Pipeline};
 use anyhow::Result;
 use erupt::{
-    extensions::{ext_debug_utils, khr_surface, khr_swapchain},
+    extensions::{khr_surface, khr_swapchain},
     vk1_0 as vk, DeviceLoader, InstanceLoader,
 };
 use crate::engine::MaterialId;
@@ -34,7 +34,7 @@ impl Swapchain {
         &mut self,
         device: &DeviceLoader,
         frame: &Frame,
-    ) -> Option<(u32, &mut SwapChainImage)> {
+    ) -> Result<Option<(u32, &mut SwapChainImage)>> {
         let image_index = unsafe {
             device.acquire_next_image_khr(
                 self.swapchain,
@@ -46,7 +46,7 @@ impl Swapchain {
         };
 
         let image_index = if image_index.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
-            return None;
+            return Ok(None);
         } else {
             image_index.unwrap()
         };
@@ -56,14 +56,14 @@ impl Swapchain {
         // Wait until the frame associated with this swapchain image is finisehd rendering, if any
         // May be null if no frames have flowed just yet
         if !image.in_flight.is_null() {
-            unsafe { device.wait_for_fences(&[image.in_flight], true, u64::MAX) }.unwrap();
+            unsafe { device.wait_for_fences(&[image.in_flight], true, u64::MAX) }.result()?;
         }
 
         // Associate this swapchain image with the given frame. When the frame is finished, this
         // swapchain image will know (see above) when this image is rendered.
         image.in_flight = frame.in_flight_fence;
 
-        Some((image_index, image))
+        Ok(Some((image_index, image)))
     }
 
     pub fn new(
@@ -170,13 +170,14 @@ impl Swapchain {
     }
 
     pub fn remove_pipeline(&mut self, device: &DeviceLoader, id: MaterialId) {
-        let mut mat = self.pipelines.remove(&id).unwrap();
-        mat.free(device);
+        if let Some(mut mat) = self.pipelines.remove(&id) {
+            mat.free(device);
+        }
     }
 
-    pub fn free(&mut self, device: &DeviceLoader) {
+    pub fn free(&mut self, device: &DeviceLoader) -> Result<()> {
         unsafe {
-            device.device_wait_idle().unwrap();
+            device.device_wait_idle().result()?;
         }
 
         for pipeline in self.pipelines.values_mut() {
@@ -192,6 +193,7 @@ impl Swapchain {
             device.destroy_render_pass(Some(self.render_pass), None);
         }
         self.freed = true;
+        Ok(())
     }
 }
 

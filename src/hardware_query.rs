@@ -1,11 +1,10 @@
 use anyhow::Result;
 use erupt::{
-    extensions::{ext_debug_utils, khr_surface, khr_swapchain},
-    utils::{self, allocator, surface},
-    vk1_0 as vk, DeviceLoader, EntryLoader, InstanceLoader,
+    extensions::khr_surface,
+    vk1_0 as vk, InstanceLoader,
 };
 use std::{
-    ffi::{CStr, CString},
+    ffi::CStr,
     os::raw::c_char,
 };
 

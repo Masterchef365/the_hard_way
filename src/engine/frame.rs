@@ -3,13 +3,12 @@ use crate::camera::Camera;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
 use erupt::{
-    extensions::{ext_debug_utils, khr_surface, khr_swapchain},
-    vk1_0 as vk, DeviceLoader, InstanceLoader,
+    extensions::khr_swapchain,
+    vk1_0 as vk,
 };
-use nalgebra::{Matrix4, Point2, Point3};
 
 impl Engine {
-    pub fn next_frame(&mut self, camera: &Camera, time: f32) -> Result<()> {
+    pub fn next_frame(&mut self, camera: &Camera, _time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
             let mut swapchain =
@@ -25,10 +24,10 @@ impl Engine {
         let aspect = extent.width as f32 / extent.height as f32;
 
         // Wait for the next frame to become available
-        let (frame_idx, frame) = self.frame_sync.next_frame(&self.device);
+        let (frame_idx, frame) = self.frame_sync.next_frame(&self.device)?;
 
         // Wait for a swapchain image to become available and assign it the current frame
-        let swapchain_image = swapchain.next_image(&self.device, frame);
+        let swapchain_image = swapchain.next_image(&self.device, frame)?;
 
         // Swapchain is out of date, reconstruct on the next pass
         let (swapchain_image_idx, swapchain_image) = match swapchain_image {
@@ -41,7 +40,7 @@ impl Engine {
 
         // Upload camera matrix
         self.camera_ubos[frame_idx]
-            .map(&self.device, &[*camera.matrix(aspect).as_ref()]);
+            .map(&self.device, &[*camera.matrix(aspect).as_ref()])?;
 
         // Reset and write command buffers for this frame
         let command_buffer = self.command_buffers[frame_idx];
@@ -142,10 +141,10 @@ impl Engine {
             .command_buffers(&command_buffers)
             .signal_semaphores(&signal_semaphores);
         unsafe {
-            self.device.reset_fences(&[frame.in_flight_fence]).unwrap(); // TODO: Move this into the swapchain next_image
+            self.device.reset_fences(&[frame.in_flight_fence]).result()?; // TODO: Move this into the swapchain next_image
             self.device
                 .queue_submit(self.queue, &[submit_info], Some(frame.in_flight_fence))
-                .unwrap()
+                .result()?;
         }
 
         // Present to swapchain
@@ -162,7 +161,7 @@ impl Engine {
             self.invalidate_swapchain()?;
             return Ok(());
         } else {
-            queue_result.unwrap();
+            queue_result.result()?;
         };
 
         Ok(())

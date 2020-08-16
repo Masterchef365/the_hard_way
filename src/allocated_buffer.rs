@@ -1,9 +1,7 @@
 use anyhow::Result;
 use erupt::{
-    utils::{
-        self,
+    utils::
         allocator::{self, Allocator},
-    },
     vk1_0 as vk, DeviceLoader,
 };
 use std::marker::PhantomData;

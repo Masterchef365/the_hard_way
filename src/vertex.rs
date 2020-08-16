@@ -1,5 +1,5 @@
 use bytemuck::offset_of;
-use erupt::{vk1_0 as vk, DeviceLoader};
+use erupt::vk1_0 as vk;
 use nalgebra::{Point2, Point3};
 
 #[repr(C)]
