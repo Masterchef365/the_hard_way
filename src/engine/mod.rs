@@ -133,7 +133,7 @@ impl Engine {
         Ok(())
     }
 
-    fn set_transform(&mut self, id: ObjectId, transform: Matrix4<f32>) {
+    pub fn set_transform(&mut self, id: ObjectId, transform: Matrix4<f32>) {
         if let Some(object) = self.objects.get_mut(&id) {
             object.transform = transform;
         }

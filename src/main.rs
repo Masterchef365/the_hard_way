@@ -1,5 +1,5 @@
 use anyhow::Result;
-use nalgebra::Point3;
+use nalgebra::{Point3, Matrix4};
 use std::fs;
 use the_hard_way::{Engine, DrawType, Vertex, Camera};
 use winit::{
@@ -70,8 +70,10 @@ fn main() -> Result<()> {
             engine
                 .next_frame(&camera, time)
                 .expect("Frame failed to render");
-            camera.eye[0] = time.cos();
-            camera.eye[2] = time.sin();
+            let transform = Matrix4::from_euler_angles(0.0, time * 8.0, 0.0);
+            engine.set_transform(mesh, transform);
+            //camera.eye[0] = time.cos();
+            //camera.eye[2] = time.sin();
             /*
                let end_time = std::time::Instant::now();
                println!(

@@ -138,7 +138,15 @@ impl Pipeline {
 
         let descriptor_set_layouts = [descriptor_set_layout];
 
+        let push_constant_ranges = [
+            vk::PushConstantRangeBuilder::new()
+                .stage_flags(vk::ShaderStageFlags::VERTEX)
+                .offset(0)
+                .size(std::mem::size_of::<[[f32; 4]; 4]>() as u32)
+        ];
+
         let create_info = vk::PipelineLayoutCreateInfoBuilder::new()
+            .push_constant_ranges(&push_constant_ranges)
             .set_layouts(&descriptor_set_layouts);
 
         let pipeline_layout =

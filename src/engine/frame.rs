@@ -121,6 +121,15 @@ impl Engine {
                         &[],
                     );
 
+                    self.device.cmd_push_constants(
+                        command_buffer,
+                        pipeline.pipeline_layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        std::mem::size_of::<[[f32; 4]; 4]>() as u32,
+                        object.transform.data.as_ptr() as _
+                    );
+
                     self.device
                         .cmd_draw_indexed(command_buffer, object.n_indices, 1, 0, 0, 0);
                 }
