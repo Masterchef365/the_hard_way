@@ -152,6 +152,13 @@ impl Pipeline {
         let pipeline_layout =
             unsafe { device.create_pipeline_layout(&create_info, None, None) }.result()?;
 
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfoBuilder::new()
+            .depth_test_enable(true)
+            .depth_write_enable(true)
+            .depth_compare_op(vk::CompareOp::LESS)// TODO: Play with this! For fun!
+            .depth_bounds_test_enable(false)
+            .stencil_test_enable(false);
+
         let create_info = vk::GraphicsPipelineCreateInfoBuilder::new()
             .stages(&shader_stages)
             .vertex_input_state(&vertex_input)
@@ -160,6 +167,7 @@ impl Pipeline {
             .rasterization_state(&rasterizer)
             .multisample_state(&multisampling)
             .color_blend_state(&color_blending)
+            .depth_stencil_state(&depth_stencil_state)
             .layout(pipeline_layout)
             .render_pass(render_pass)
             .subpass(0);

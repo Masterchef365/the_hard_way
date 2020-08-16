@@ -11,7 +11,7 @@ impl Drop for Engine {
                 material.free(&self.device);
             }
             if let Some(swapchain) = &mut self.swapchain {
-                swapchain.free(&self.device).unwrap();
+                swapchain.free(&self.device, &mut self.allocator).unwrap();
             }
             for ubo in &mut self.camera_ubos {
                 ubo.free(&self.device, &mut self.allocator).unwrap();

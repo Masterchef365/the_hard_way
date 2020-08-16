@@ -105,7 +105,7 @@ fn main() -> Result<()> {
                 frame_count / (frame_end_time - start_time).as_secs().max(1),
                 1_000_000 / frame_duration.as_micros(),
             );
-            std::io::stdout().lock().flush();
+            std::io::stdout().lock().flush().unwrap();
 
             let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
             engine.set_transform(mesh, transform);

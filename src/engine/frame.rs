@@ -2,17 +2,19 @@ use super::Engine;
 use crate::camera::Camera;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
-use erupt::{
-    extensions::khr_swapchain,
-    vk1_0 as vk,
-};
+use erupt::{extensions::khr_swapchain, vk1_0 as vk};
 
 impl Engine {
     pub fn next_frame(&mut self, camera: &Camera, _time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
-            let mut swapchain =
-                Swapchain::new(&self.instance, &self.device, &self.hardware, self.surface)?;
+            let mut swapchain = Swapchain::new(
+                &self.instance,
+                &self.device,
+                &self.hardware,
+                self.surface,
+                &mut self.allocator,
+            )?;
             for (id, material) in self.materials.iter() {
                 swapchain.add_pipeline(&self.device, self.descriptor_set_layout, *id, material)?;
             }
@@ -39,8 +41,7 @@ impl Engine {
         };
 
         // Upload camera matrix
-        self.camera_ubos[frame_idx]
-            .map(&self.device, &[*camera.matrix(aspect).as_ref()])?;
+        self.camera_ubos[frame_idx].map(&self.device, &[*camera.matrix(aspect).as_ref()])?;
 
         // Reset and write command buffers for this frame
         let command_buffer = self.command_buffers[frame_idx];
@@ -56,11 +57,19 @@ impl Engine {
                 .result()?;
 
             // Set render pass
-            let clear_values = [vk::ClearValue {
+            let clear_values = [
+            vk::ClearValue {
                 color: vk::ClearColorValue {
                     float32: [0.0, 0.0, 0.0, 1.0],
                 },
+            },
+            vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                }
             }];
+
             let begin_info = vk::RenderPassBeginInfoBuilder::new()
                 .framebuffer(swapchain_image.framebuffer)
                 .render_pass(render_pass)
@@ -127,7 +136,7 @@ impl Engine {
                         vk::ShaderStageFlags::VERTEX,
                         0,
                         std::mem::size_of::<[[f32; 4]; 4]>() as u32,
-                        object.transform.data.as_ptr() as _
+                        object.transform.data.as_ptr() as _,
                     );
 
                     self.device
@@ -150,7 +159,9 @@ impl Engine {
             .command_buffers(&command_buffers)
             .signal_semaphores(&signal_semaphores);
         unsafe {
-            self.device.reset_fences(&[frame.in_flight_fence]).result()?; // TODO: Move this into the swapchain next_image
+            self.device
+                .reset_fences(&[frame.in_flight_fence])
+                .result()?; // TODO: Move this into the swapchain next_image
             self.device
                 .queue_submit(self.queue, &[submit_info], Some(frame.in_flight_fence))
                 .result()?;
