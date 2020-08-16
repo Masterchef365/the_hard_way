@@ -1,14 +1,14 @@
 use anyhow::Result;
-use nalgebra::{Matrix4, Point3};
+use nalgebra::{Matrix4, Point3, Vector3};
 use std::fs;
+use std::io::Write;
+use std::time::Duration;
 use the_hard_way::{Camera, DrawType, Engine, Vertex};
 use winit::{
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use std::time::Duration;
-use std::io::Write;
 
 const APP_NAME: &str = "Engine demo app";
 
@@ -26,32 +26,51 @@ fn main() -> Result<()> {
     let fragment = fs::read("shaders/triangle.frag.spv")?;
     let material = engine.load_material(&vertex, &fragment, DrawType::Triangles)?;
 
-    let indices: [u16; 6] = [0, 1, 2, 2, 3, 0];
-
     let vertices = [
         Vertex {
-            pos: [-0.5, -0.5],
-            color: [1.0, 0.0, 0.0],
+            pos: [-1.0, -1.0, -1.0],
+            color: [0.0, 1.0, 1.0],
         },
         Vertex {
-            pos: [0.5, -0.5],
-            color: [0.0, 1.0, 0.0],
+            pos: [1.0, -1.0, -1.0],
+            color: [1.0, 0.0, 1.0],
         },
         Vertex {
-            pos: [0.5, 0.5],
-            color: [0.0, 0.0, 1.0],
+            pos: [1.0, 1.0, -1.0],
+            color: [1.0, 1.0, 0.0],
         },
         Vertex {
-            pos: [-0.5, 0.5],
-            color: [1.0, 1.0, 1.0],
+            pos: [-1.0, 1.0, -1.0],
+            color: [0.0, 1.0, 1.0],
         },
+        Vertex {
+            pos: [-1.0, -1.0, 1.0],
+            color: [1.0, 0.0, 1.0],
+        },
+        Vertex {
+            pos: [1.0, -1.0, 1.0],
+            color: [1.0, 1.0, 0.0],
+        },
+        Vertex {
+            pos: [1.0, 1.0, 1.0],
+            color: [0.0, 1.0, 1.0],
+        },
+        Vertex {
+            pos: [-1.0, 1.0, 1.0],
+            color: [1.0, 0.0, 1.0],
+        },
+    ];
+
+    let indices = [
+        0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6,
+        4, 5, 0, 0, 5, 1,
     ];
 
     let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
     let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
 
     let mut camera = Camera {
-        eye: Point3::new(-1.0, 1.0, -1.0),
+        eye: Point3::new(-4.0, 4.0, -4.0),
         at: Point3::origin(),
         fovy: 45.0f32.to_radians(),
         clip_near: 0.1,
@@ -82,15 +101,16 @@ fn main() -> Result<()> {
 
             let frame_duration = frame_end_time - frame_start_time;
             print!(
-                "\r\x1b[1KFPS: Actual: {} Possible: {}\r",
+                "\x1b[1K\rFPS: Actual: {} Possible: {}",
                 frame_count / (frame_end_time - start_time).as_secs().max(1),
                 1_000_000 / frame_duration.as_micros(),
             );
             std::io::stdout().lock().flush();
 
-            let transform = Matrix4::from_euler_angles(0.0, time_var * 8.0, 0.0);
-            engine.set_transform(mesh, transform);
             let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
+            engine.set_transform(mesh, transform);
+
+            let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
             engine.set_transform(mesh2, transform);
             //camera.eye[0] = time.cos();
             //camera.eye[2] = time.sin();
