@@ -8,22 +8,22 @@ impl Drop for Engine {
                 self.remove_object(id).unwrap();
             }
             for material in self.materials.values_mut() {
-                material.free(&self.device);
+                material.free(&self.vk_device);
             }
             if let Some(swapchain) = &mut self.swapchain {
-                swapchain.free(&self.device, &mut self.allocator).unwrap();
+                swapchain.free(&self.vk_device, &mut self.allocator).unwrap();
             }
             for ubo in &mut self.camera_ubos {
-                ubo.free(&self.device, &mut self.allocator).unwrap();
+                ubo.free(&self.vk_device, &mut self.allocator).unwrap();
             }
-            self.frame_sync.free(&self.device);
-            self.device.destroy_descriptor_set_layout(Some(self.descriptor_set_layout), None);
-            self.device.destroy_descriptor_pool(Some(self.descriptor_pool), None);
-            self.device.free_command_buffers(self.command_pool, &self.command_buffers);
-            self.device.destroy_command_pool(Some(self.command_pool), None);
-            self.device.destroy_device(None);
-            self.instance.destroy_surface_khr(Some(self.surface), None);
-            self.instance.destroy_instance(None);
+            self.frame_sync.free(&self.vk_device);
+            self.vk_device.destroy_descriptor_set_layout(Some(self.descriptor_set_layout), None);
+            self.vk_device.destroy_descriptor_pool(Some(self.descriptor_pool), None);
+            self.vk_device.free_command_buffers(self.command_pool, &self.command_buffers);
+            self.vk_device.destroy_command_pool(Some(self.command_pool), None);
+            self.vk_device.destroy_device(None);
+            self.vk_instance.destroy_surface_khr(Some(self.surface), None);
+            self.vk_instance.destroy_instance(None);
         }
     }
 }

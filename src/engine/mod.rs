@@ -35,10 +35,10 @@ pub struct Engine {
     command_pool: vk::CommandPool,
     command_buffers: Vec<vk::CommandBuffer>,
     queue: vk::Queue,
-    device: DeviceLoader,
+    vk_device: DeviceLoader,
     hardware: HardwareSelection,
     surface: khr_surface::SurfaceKHR,
-    instance: InstanceLoader,
+    vk_instance: InstanceLoader,
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_sets: Vec<vk::DescriptorSet>,
@@ -57,9 +57,9 @@ impl Engine {
     ) -> Result<MaterialId> {
         let id = MaterialId(self.next_material_id);
         self.next_material_id += 1;
-        let material = Material::new(&self.device, vertex, fragment, draw_type)?;
+        let material = Material::new(&self.vk_device, vertex, fragment, draw_type)?;
         if let Some(swapchain) = &mut self.swapchain {
-            swapchain.add_pipeline(&self.device, self.descriptor_set_layout, id, &material)?;
+            swapchain.add_pipeline(&self.vk_device, self.descriptor_set_layout, id, &material)?;
         }
         self.materials.insert(id, material);
         Ok(id)
@@ -67,10 +67,10 @@ impl Engine {
 
     pub fn unload_material(&mut self, material: MaterialId) {
         if let Some(mut mat) = self.materials.remove(&material) {
-            mat.free(&self.device);
+            mat.free(&self.vk_device);
         }
         if let Some(swapchain) = &mut self.swapchain {
-            swapchain.remove_pipeline(&self.device, material);
+            swapchain.remove_pipeline(&self.vk_device, material);
         }
     }
 
@@ -93,9 +93,9 @@ impl Engine {
             vertices.len(),
             create_info,
             &mut self.allocator,
-            &self.device,
+            &self.vk_device,
         )?;
-        vertex_buffer.map(&self.device, vertices)?;
+        vertex_buffer.map(&self.vk_device, vertices)?;
 
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::INDEX_BUFFER)
@@ -104,9 +104,9 @@ impl Engine {
             indices.len(),
             create_info,
             &mut self.allocator,
-            &self.device,
+            &self.vk_device,
         )?;
-        index_buffer.map(&self.device, indices)?;
+        index_buffer.map(&self.vk_device, indices)?;
 
         let object = Object {
             material,
@@ -124,11 +124,11 @@ impl Engine {
     pub fn remove_object(&mut self, id: ObjectId) -> Result<()> {
         // Figure out how not to wait?
         unsafe {
-            self.device.device_wait_idle().result()?;
+            self.vk_device.device_wait_idle().result()?;
         }
         if let Some(mut object) = self.objects.remove(&id) {
-            object.vertices.free(&self.device, &mut self.allocator)?;
-            object.indices.free(&self.device, &mut self.allocator)?;
+            object.vertices.free(&self.vk_device, &mut self.allocator)?;
+            object.indices.free(&self.vk_device, &mut self.allocator)?;
         }
         Ok(())
     }

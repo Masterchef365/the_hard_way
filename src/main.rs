@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use nalgebra::{Matrix4, Point3, Vector3};
+use openxr as xr;
 use std::fs;
 use std::io::Write;
 use std::time::Duration;
@@ -13,15 +14,34 @@ use winit::{
 const APP_NAME: &str = "Engine demo app";
 
 fn main() -> Result<()> {
-    let event_loop = EventLoop::new();
+    let entry = xr::Entry::load()
+        .context("couldn't find the OpenXR loader; try enabling the \"static\" feature")?;
 
-    let window = WindowBuilder::new()
-        .with_title(APP_NAME)
-        .with_resizable(true)
-        .build(&event_loop)?;
+    let mut enabled_extensions = xr::ExtensionSet::default();
+    enabled_extensions.khr_vulkan_enable = true;
+    let xr_instance = entry.create_instance(
+        &xr::ApplicationInfo {
+            application_name: APP_NAME,
+            application_version: 0,
+            engine_name: "Prototype engine",
+            engine_version: 0,
+        },
+        &enabled_extensions,
+        &[],
+    )?;
+    let instance_props = xr_instance.properties()?;
+    println!(
+        "loaded OpenXR runtime: {} {}",
+        instance_props.runtime_name, instance_props.runtime_version
+    );
 
-    let mut engine = Engine::new(&window, APP_NAME)?;
+    let system = xr_instance
+        .system(xr::FormFactor::HEAD_MOUNTED_DISPLAY)
+        .unwrap();
 
+    let mut engine = Engine::new(&xr_instance, system, APP_NAME)?;
+
+    /*
     let vertex = fs::read("shaders/triangle.vert.spv")?;
     let fragment = fs::read("shaders/triangle.frag.spv")?;
     let material = engine.load_material(&vertex, &fragment, DrawType::Triangles)?;
@@ -59,7 +79,7 @@ fn main() -> Result<()> {
             pos: [-1.0, 1.0, 1.0],
             color: [1.0, 0.0, 1.0],
         },
-    ];
+        ];
 
     let indices = [
         0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6,
@@ -121,4 +141,6 @@ fn main() -> Result<()> {
         }
         _ => (),
     })
+    */
+    todo!()
 }
