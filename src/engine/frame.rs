@@ -2,17 +2,18 @@ use super::Engine;
 use crate::camera::Camera;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
-use erupt::{extensions::khr_swapchain, vk1_0 as vk};
+use erupt::vk1_0 as vk;
+use openxr as xr;
 
 impl Engine {
-    pub fn next_frame(&mut self, camera: &Camera, _time: f32) -> Result<()> {
+    pub fn next_frame(&mut self, xr_instance: &xr::Instance, xr_session: &xr::Session<xr::Vulkan>, xr_system: xr::SystemId, camera: &Camera, _time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
             let mut swapchain = Swapchain::new(
-                &self.vk_instance,
+                xr_instance,
+                xr_session,
+                xr_system,
                 &self.vk_device,
-                &self.hardware,
-                self.surface,
                 &mut self.allocator,
             )?;
             for (id, material) in self.materials.iter() {
@@ -29,16 +30,7 @@ impl Engine {
         let (frame_idx, frame) = self.frame_sync.next_frame(&self.vk_device)?;
 
         // Wait for a swapchain image to become available and assign it the current frame
-        let swapchain_image = swapchain.next_image(&self.vk_device, frame)?;
-
-        // Swapchain is out of date, reconstruct on the next pass
-        let (swapchain_image_idx, swapchain_image) = match swapchain_image {
-            Some(s) => s,
-            None => {
-                self.invalidate_swapchain()?;
-                return Ok(());
-            }
-        };
+        let (swapchain_image_idx, swapchain_image) = swapchain.next_image(&self.vk_device, frame)?;
 
         // Upload camera matrix
         self.camera_ubos[frame_idx].map(&self.vk_device, &[*camera.matrix(aspect).as_ref()])?;
@@ -168,21 +160,7 @@ impl Engine {
         }
 
         // Present to swapchain
-        let swapchains = [swapchain.swapchain];
-        let image_indices = [swapchain_image_idx];
-        let present_info = khr_swapchain::PresentInfoKHRBuilder::new()
-            .wait_semaphores(&signal_semaphores)
-            .swapchains(&swapchains)
-            .image_indices(&image_indices);
-
-        let queue_result = unsafe { self.vk_device.queue_present_khr(self.queue, &present_info) };
-
-        if queue_result.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
-            self.invalidate_swapchain()?;
-            return Ok(());
-        } else {
-            queue_result.result()?;
-        };
+        swapchain.swapchain.release_image().unwrap();
 
         Ok(())
     }

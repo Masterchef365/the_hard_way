@@ -39,8 +39,11 @@ fn main() -> Result<()> {
         .system(xr::FormFactor::HEAD_MOUNTED_DISPLAY)
         .unwrap();
 
-    let mut engine = Engine::new(&xr_instance, system, APP_NAME)?;
+    let (mut session, mut engine) = Engine::new(&xr_instance, system, APP_NAME)?;
 
+    std::thread::sleep_ms(3000);
+
+    todo!("It's all good!")
     /*
     let vertex = fs::read("shaders/triangle.vert.spv")?;
     let fragment = fs::read("shaders/triangle.frag.spv")?;
@@ -142,5 +145,4 @@ fn main() -> Result<()> {
         _ => (),
     })
     */
-    todo!()
 }

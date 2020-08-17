@@ -1,19 +1,22 @@
 use crate::engine::MaterialId;
 use crate::frame_sync::Frame;
-use crate::hardware_query::HardwareSelection;
 use crate::pipeline::{Material, Pipeline};
 use anyhow::Result;
 use erupt::{
-    extensions::{khr_surface, khr_swapchain},
     utils::allocator::{Allocation, Allocator, MemoryTypeFinder},
-    vk1_0 as vk, DeviceLoader, InstanceLoader,
+    vk1_0 as vk, DeviceLoader,
+    vk1_1,
 };
 use std::collections::HashMap;
+use openxr as xr;
+
+pub const VIEW_COUNT: u32 = 2;
+pub const COLOR_FORMAT: vk::Format = vk::Format::B8G8R8A8_SRGB;
 
 /// Describes everything that changes when the swapchain changes. This isn't ideal, and will likely
 /// be broken up later.
 pub struct Swapchain {
-    pub swapchain: khr_swapchain::SwapchainKHR,
+    pub swapchain: xr::Swapchain<xr::Vulkan>,
     pub render_pass: vk::RenderPass,
     pub extent: vk::Extent2D,
     pub pipelines: HashMap<MaterialId, Pipeline>,
@@ -38,22 +41,8 @@ impl Swapchain {
         &mut self,
         device: &DeviceLoader,
         frame: &Frame,
-    ) -> Result<Option<(u32, &mut SwapChainImage)>> {
-        let image_index = unsafe {
-            device.acquire_next_image_khr(
-                self.swapchain,
-                u64::MAX,
-                Some(frame.image_available),
-                None,
-                None,
-            )
-        };
-
-        let image_index = if image_index.raw == vk::Result::ERROR_OUT_OF_DATE_KHR {
-            return Ok(None);
-        } else {
-            image_index.unwrap()
-        };
+    ) -> Result<(u32, &mut SwapChainImage)> {
+        let image_index = self.swapchain.acquire_image()?;
 
         let image = &mut self.images[image_index as usize];
 
@@ -67,29 +56,43 @@ impl Swapchain {
         // swapchain image will know (see above) when this image is rendered.
         image.in_flight = frame.in_flight_fence;
 
-        Ok(Some((image_index, image)))
+        Ok((image_index, image))
     }
 
     pub fn new(
-        instance: &InstanceLoader,
+        xr_instance: &xr::Instance,
+        session: &xr::Session<xr::Vulkan>,
+        system: xr::SystemId,
         device: &DeviceLoader,
-        hardware: &HardwareSelection,
-        surface: khr_surface::SurfaceKHR,
         allocator: &mut Allocator,
     ) -> Result<Self> {
-        let surface_caps = unsafe {
-            instance.get_physical_device_surface_capabilities_khr(
-                hardware.physical_device,
-                surface,
-                None,
+        let views = xr_instance
+            .enumerate_view_configuration_views(
+                system,
+                xr::ViewConfigurationType::PRIMARY_STEREO,
             )
-        }
-        .result()?;
+            .unwrap();
 
-        let mut image_count = surface_caps.min_image_count + 1;
-        if surface_caps.max_image_count > 0 && image_count > surface_caps.max_image_count {
-            image_count = surface_caps.max_image_count;
-        }
+        let extent = vk::Extent2D {
+            width: views[0].recommended_image_rect_width,
+            height: views[0].recommended_image_rect_height,
+        };
+        let swapchain = session
+            .create_swapchain(&xr::SwapchainCreateInfo {
+                create_flags: xr::SwapchainCreateFlags::EMPTY,
+                usage_flags: xr::SwapchainUsageFlags::COLOR_ATTACHMENT
+                    | xr::SwapchainUsageFlags::SAMPLED,
+                    format: COLOR_FORMAT.0 as _,
+                    sample_count: 1,
+                    width: extent.width,
+                    height: extent.height,
+                    face_count: 1,
+                    array_size: VIEW_COUNT,
+                    mip_count: 1,
+            })
+        .unwrap();
+
+        let swapchain_images = swapchain.enumerate_images().unwrap();
 
         // Create depth image
         let depth_format = vk::Format::D32_SFLOAT;
@@ -97,8 +100,8 @@ impl Swapchain {
             .image_type(vk::ImageType::_2D)
             .extent(
                 vk::Extent3DBuilder::new()
-                    .width(surface_caps.current_extent.width)
-                    .height(surface_caps.current_extent.height)
+                    .width(extent.width)
+                    .height(extent.height)
                     .depth(1)
                     .build(),
             )
@@ -130,30 +133,9 @@ impl Swapchain {
         let depth_image_view =
             unsafe { device.create_image_view(&create_info, None, None) }.result()?;
 
-        // Build the actual swapchain
-        let create_info = khr_swapchain::SwapchainCreateInfoKHRBuilder::new()
-            .surface(surface)
-            .min_image_count(image_count)
-            .image_format(hardware.format.format)
-            .image_color_space(hardware.format.color_space)
-            .image_extent(surface_caps.current_extent)
-            .image_array_layers(1)
-            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
-            .pre_transform(surface_caps.current_transform)
-            .composite_alpha(khr_surface::CompositeAlphaFlagBitsKHR::OPAQUE_KHR)
-            .present_mode(hardware.present_mode)
-            .clipped(true)
-            .old_swapchain(khr_swapchain::SwapchainKHR::null());
-
-        let swapchain =
-            unsafe { device.create_swapchain_khr(&create_info, None, None) }.result()?;
-        let swapchain_images =
-            unsafe { device.get_swapchain_images_khr(swapchain, None) }.result()?;
-
         // Render pass
         let color_attachment = vk::AttachmentDescriptionBuilder::new()
-            .format(hardware.format.format)
+            .format(COLOR_FORMAT)
             .samples(vk::SampleCountFlagBits::_1)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE)
@@ -196,10 +178,18 @@ impl Swapchain {
             .dst_stage_mask(vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT)
             .dst_access_mask(vk::AccessFlags::COLOR_ATTACHMENT_WRITE)];
 
-        let create_info = vk::RenderPassCreateInfoBuilder::new()
+        let mut create_info = vk::RenderPassCreateInfoBuilder::new()
             .attachments(&attachments)
             .subpasses(&subpasses)
             .dependencies(&dependencies);
+
+        let view_mask = [!(!0 << 2)];
+        let mut multiview = vk1_1::RenderPassMultiviewCreateInfoBuilder::new()
+            .view_masks(&view_mask)
+            .correlation_masks(&view_mask)
+            .build();
+
+        create_info.p_next = &mut multiview as *mut _ as _;
 
         let render_pass =
             unsafe { device.create_render_pass(&create_info, None, None) }.result()?;
@@ -211,9 +201,8 @@ impl Swapchain {
                 SwapChainImage::new(
                     &device,
                     render_pass,
-                    image,
-                    surface_caps.current_extent,
-                    hardware,
+                    vk::Image(image),
+                    extent,
                     depth_image_view,
                 )
             })
@@ -222,7 +211,7 @@ impl Swapchain {
         Ok(Self {
             swapchain,
             render_pass,
-            extent: surface_caps.current_extent,
+            extent,
             pipelines: Default::default(),
             images,
             depth_image,
@@ -275,7 +264,6 @@ impl Swapchain {
         }
 
         unsafe {
-            device.destroy_swapchain_khr(Some(self.swapchain), None);
             device.destroy_render_pass(Some(self.render_pass), None);
         }
         self.freed = true;
@@ -289,7 +277,6 @@ impl SwapChainImage {
         render_pass: vk::RenderPass,
         swapchain_image: vk::Image,
         extent: vk::Extent2D,
-        hardware: &HardwareSelection,
         depth_image_view: vk::ImageView,
     ) -> Result<Self> {
         let in_flight = vk::Fence::null();
@@ -297,7 +284,7 @@ impl SwapChainImage {
         let create_info = vk::ImageViewCreateInfoBuilder::new()
             .image(swapchain_image)
             .view_type(vk::ImageViewType::_2D)
-            .format(hardware.format.format)
+            .format(COLOR_FORMAT)
             .components(vk::ComponentMapping {
                 r: vk::ComponentSwizzle::IDENTITY,
                 g: vk::ComponentSwizzle::IDENTITY,
@@ -310,7 +297,7 @@ impl SwapChainImage {
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
-                    .layer_count(1)
+                    .layer_count(VIEW_COUNT)
                     .build(),
             );
 

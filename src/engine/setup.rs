@@ -3,20 +3,18 @@ use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
 use crate::Engine;
 use anyhow::{bail, Result};
-use erupt::{
-    cstr,
-    extensions::{ext_debug_utils, khr_swapchain},
-    utils::{allocator, surface},
-    vk1_0 as vk, vk1_1, DeviceLoader, EntryLoader, InstanceLoader,
-};
+use erupt::{utils::allocator, vk1_0 as vk, vk1_1, DeviceLoader, EntryLoader, InstanceLoader};
 use openxr as xr;
-use std::{ffi::CString, os::raw::c_char};
-use winit::window::Window;
+use std::ffi::CString;
 
 const FRAMES_IN_FLIGHT: usize = 2;
 
 impl Engine {
-    pub fn new(xr_instance: &xr::Instance, system: xr::SystemId, app_name: &str) -> Result<Self> {
+    pub fn new(
+        xr_instance: &xr::Instance,
+        system: xr::SystemId,
+        app_name: &str,
+    ) -> Result<(xr::Session<xr::Vulkan>, Self)> {
         // Vulkan entry
         let vk_entry = EntryLoader::new()?;
 
@@ -80,7 +78,7 @@ impl Engine {
             .application_info(&app_info)
             .enabled_extension_names(&vk_instance_ext_ptrs);
 
-        let mut vk_instance = InstanceLoader::new(&vk_entry, &create_info, None)?;
+        let vk_instance = InstanceLoader::new(&vk_entry, &create_info, None)?;
 
         // Obtain physical vk_device, queue_family_index, and vk_device from OpenXR
         let vk_physical_device = vk::PhysicalDevice(
@@ -122,11 +120,10 @@ impl Engine {
         let vk_device = DeviceLoader::new(&vk_instance, vk_physical_device, &create_info, None)?;
         let queue = unsafe { vk_device.get_device_queue(queue_family_index, 0, None) };
 
-        /*
         // Command pool
         let create_info = vk::CommandPoolCreateInfoBuilder::new()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
-            .queue_family_index(hardware.queue_family);
+            .queue_family_index(queue_family_index);
         let command_pool =
             unsafe { vk_device.create_command_pool(&create_info, None, None) }.result()?;
 
@@ -142,7 +139,7 @@ impl Engine {
         // Device memory allocator
         let mut allocator = allocator::Allocator::new(
             &vk_instance,
-            hardware.physical_device,
+            vk_physical_device,
             allocator::AllocatorCreateInfo::default(),
         )
         .result()?;
@@ -157,9 +154,10 @@ impl Engine {
         let descriptor_set_layout_ci =
             vk::DescriptorSetLayoutCreateInfoBuilder::new().bindings(&bindings);
 
-        let descriptor_set_layout =
-            unsafe { vk_device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None) }
-                .result()?;
+        let descriptor_set_layout = unsafe {
+            vk_device.create_descriptor_set_layout(&descriptor_set_layout_ci, None, None)
+        }
+        .result()?;
 
         // Create descriptor pool
         let pool_sizes = [vk::DescriptorPoolSizeBuilder::new()
@@ -177,7 +175,8 @@ impl Engine {
             .descriptor_pool(descriptor_pool)
             .set_layouts(&layouts);
 
-        let descriptor_sets = unsafe { vk_device.allocate_descriptor_sets(&create_info) }.result()?;
+        let descriptor_sets =
+            unsafe { vk_device.allocate_descriptor_sets(&create_info) }.result()?;
 
         // Camera's UBOs
         let create_info = vk::BufferCreateInfoBuilder::new()
@@ -209,28 +208,53 @@ impl Engine {
         // Frame synchronization
         let frame_sync = FrameSync::new(&vk_device, FRAMES_IN_FLIGHT)?;
 
-        Ok(Self {
-            _entry: vk_entry,
-            camera_ubos,
-            descriptor_set_layout,
-            descriptor_pool,
-            descriptor_sets,
-            vk_instance,
-            surface,
-            hardware,
-            vk_device,
-            queue,
-            command_pool,
-            frame_sync,
-            allocator,
-            command_buffers,
-            swapchain: None,
-            materials: Default::default(),
-            objects: Default::default(),
-            next_material_id: 0,
-            next_object_id: 0,
-        })
-        */
-        todo!("muh grind")
+        let hardware = HardwareSelection {
+            physical_device: vk_physical_device,
+            queue_family: queue_family_index,
+        };
+
+        let (session, frame_wait, frame_stream) = unsafe {
+            xr_instance.create_session::<xr::Vulkan>(
+                system,
+                &xr::vulkan::SessionCreateInfo {
+                    instance: vk_instance.handle.0 as _,
+                    physical_device: vk_physical_device.0 as _,
+                    device: vk_device.handle.0 as _,
+                    queue_family_index,
+                    queue_index: 0,
+                },
+            )
+        }?;
+
+        let stage = session
+            .create_reference_space(xr::ReferenceSpaceType::STAGE, xr::Posef::IDENTITY)
+            .unwrap();
+
+        Ok((
+            session,
+            Self {
+                _entry: vk_entry,
+                camera_ubos,
+                descriptor_set_layout,
+                descriptor_pool,
+                descriptor_sets,
+                vk_instance,
+                hardware,
+                vk_device,
+                queue,
+                command_pool,
+                frame_sync,
+                allocator,
+                command_buffers,
+                swapchain: None,
+                materials: Default::default(),
+                objects: Default::default(),
+                next_material_id: 0,
+                next_object_id: 0,
+                stage,
+                frame_wait,
+                frame_stream,
+            },
+        ))
     }
 }
