@@ -43,6 +43,7 @@ impl Swapchain {
         frame: &Frame,
     ) -> Result<(u32, &mut SwapChainImage)> {
         let image_index = self.swapchain.acquire_image()?;
+        self.swapchain.wait_image(xr::Duration::INFINITE)?;
 
         let image = &mut self.images[image_index as usize];
 

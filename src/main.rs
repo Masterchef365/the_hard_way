@@ -99,7 +99,6 @@ fn main() -> Result<()> {
     let mut event_storage = xr::EventDataBuffer::new();
     let mut session_running = false;
 
-    /*
     'main_loop: loop {
         while let Some(event) = xr_instance.poll_event(&mut event_storage).unwrap() {
             use xr::Event::*;
@@ -141,9 +140,7 @@ fn main() -> Result<()> {
             continue;
         }
 
-        engine
-            .next_frame(&xr_instance, &session, system, &camera, 0.0)
-            .expect("Frame failed to render");
+        engine.next_frame(&xr_instance, &session, system, &camera, 0.0)?;
 
         /*
         let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
@@ -153,7 +150,6 @@ fn main() -> Result<()> {
         engine.set_transform(mesh2, transform);
         */
     }
-    */
 
     drop(session);
 
