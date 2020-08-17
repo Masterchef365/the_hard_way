@@ -1,24 +1,18 @@
-use super::Engine;
-use anyhow::Result;
+use super::{Engine, MaterialId, ObjectId, Object};
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
-use crate::pipeline::DrawType;
-use crate::pipeline::Material;
-//use crate::swapchain::Swapchain;
-struct Swapchain;
-use crate::vertex::Vertex;
+use crate::pipeline::{DrawType, Material};
+use crate::swapchain::Swapchain;
 use anyhow::Result;
+use crate::allocated_buffer::AllocatedBuffer;
+use crate::vertex::Vertex;
 use erupt::{
     extensions::khr_surface,
-    utils::{
-        self,
-        allocator::Allocator,
-    },
+    utils::{self, allocator::Allocator},
     vk1_0 as vk, DeviceLoader, InstanceLoader,
 };
 use nalgebra::Matrix4;
 use std::collections::HashMap;
-use crate::allocated_buffer::AllocatedBuffer;
 
 impl Engine {
     pub(crate) fn invalidate_swapchain(&mut self) -> Result<()> {
@@ -121,5 +115,3 @@ impl Engine {
         }
     }
 }
-
-

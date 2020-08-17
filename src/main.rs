@@ -41,10 +41,6 @@ fn main() -> Result<()> {
 
     let (mut session, mut engine) = Engine::new(&xr_instance, system, APP_NAME)?;
 
-    std::thread::sleep_ms(3000);
-
-    todo!("It's all good!")
-    /*
     let vertex = fs::read("shaders/triangle.vert.spv")?;
     let fragment = fs::read("shaders/triangle.frag.spv")?;
     let material = engine.load_material(&vertex, &fragment, DrawType::Triangles)?;
@@ -82,7 +78,7 @@ fn main() -> Result<()> {
             pos: [-1.0, 1.0, 1.0],
             color: [1.0, 0.0, 1.0],
         },
-        ];
+    ];
 
     let indices = [
         0, 1, 3, 3, 1, 2, 1, 5, 2, 2, 5, 6, 5, 4, 6, 6, 4, 7, 4, 0, 7, 7, 0, 3, 3, 2, 7, 7, 2, 6,
@@ -100,49 +96,61 @@ fn main() -> Result<()> {
         clip_far: 100.0,
     };
 
-    let target_frame_time = Duration::from_micros(1_000_000 / 60);
-    let mut frame_count = 0;
+    let mut event_storage = xr::EventDataBuffer::new();
+    let mut session_running = false;
 
-    let start_time = std::time::Instant::now();
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::NewEvents(StartCause::Init) => {
-            *control_flow = ControlFlow::Poll;
-        }
-        Event::WindowEvent { event, .. } => match event {
-            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-            _ => (),
-        },
-        Event::MainEventsCleared => {
-            let frame_start_time = std::time::Instant::now();
-            let time_var = (frame_start_time - start_time).as_millis() as f32 / 1000.0;
-
-            engine
-                .next_frame(&camera, time_var)
-                .expect("Frame failed to render");
-            let frame_end_time = std::time::Instant::now();
-            frame_count += 1;
-
-            let frame_duration = frame_end_time - frame_start_time;
-            print!(
-                "\x1b[1K\rFPS: Actual: {} Possible: {}",
-                frame_count / (frame_end_time - start_time).as_secs().max(1),
-                1_000_000 / frame_duration.as_micros(),
-            );
-            std::io::stdout().lock().flush().unwrap();
-
-            let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
-            engine.set_transform(mesh, transform);
-
-            let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
-            engine.set_transform(mesh2, transform);
-            //camera.eye[0] = time.cos();
-            //camera.eye[2] = time.sin();
-
-            if frame_duration < target_frame_time {
-                std::thread::sleep(target_frame_time - frame_duration);
+    'main_loop: loop {
+        while let Some(event) = xr_instance.poll_event(&mut event_storage).unwrap() {
+            use xr::Event::*;
+            match event {
+                SessionStateChanged(e) => {
+                    println!("entered state {:?}", e.state());
+                    match e.state() {
+                        xr::SessionState::READY => {
+                            session
+                                .begin(xr::ViewConfigurationType::PRIMARY_STEREO)
+                                .unwrap();
+                            session_running = true;
+                        }
+                        xr::SessionState::STOPPING => {
+                            session.end().unwrap();
+                            session_running = false;
+                        }
+                        xr::SessionState::EXITING | xr::SessionState::LOSS_PENDING => {
+                            println!("EXITING");
+                            break 'main_loop;
+                        }
+                        _ => {}
+                    }
+                }
+                InstanceLossPending(_) => {
+                    println!("Pending instance loss");
+                    break 'main_loop;
+                }
+                EventsLost(e) => {
+                    println!("lost {} events", e.lost_event_count());
+                }
+                _ => {}
             }
         }
-        _ => (),
-    })
-    */
+
+        if !session_running {
+            // Don't grind up the CPU
+            std::thread::sleep(Duration::from_millis(100));
+            continue;
+        }
+
+        engine
+            .next_frame(&xr_instance, &session, system, &camera, 0.0)
+            .expect("Frame failed to render");
+
+        /*
+           let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
+           engine.set_transform(mesh, transform);
+
+           let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
+           engine.set_transform(mesh2, transform);
+           */
+        }
+    Ok(())
 }

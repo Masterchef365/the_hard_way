@@ -1,5 +1,5 @@
 mod frame;
-//mod internals;
+mod internals;
 mod setup;
 mod unsetup;
 use crate::frame_sync::FrameSync;

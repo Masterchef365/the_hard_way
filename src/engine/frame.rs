@@ -6,7 +6,29 @@ use erupt::vk1_0 as vk;
 use openxr as xr;
 
 impl Engine {
-    pub fn next_frame(&mut self, xr_instance: &xr::Instance, xr_session: &xr::Session<xr::Vulkan>, xr_system: xr::SystemId, camera: &Camera, _time: f32) -> Result<()> {
+    pub fn next_frame(
+        &mut self,
+        xr_instance: &xr::Instance,
+        xr_session: &xr::Session<xr::Vulkan>,
+        xr_system: xr::SystemId,
+        camera: &Camera,
+        _time: f32,
+    ) -> Result<()> {
+        // Wait for OpenXR to signal it has a frame ready
+        let xr_frame_state = self.frame_wait.wait().unwrap();
+        self.frame_stream.begin().unwrap();
+
+        if !xr_frame_state.should_render {
+            self.frame_stream
+                .end(
+                    xr_frame_state.predicted_display_time,
+                    xr::EnvironmentBlendMode::OPAQUE,
+                    &[],
+                )
+                .unwrap();
+            return Ok(());
+        }
+
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
             let mut swapchain = Swapchain::new(
@@ -17,7 +39,12 @@ impl Engine {
                 &mut self.allocator,
             )?;
             for (id, material) in self.materials.iter() {
-                swapchain.add_pipeline(&self.vk_device, self.descriptor_set_layout, *id, material)?;
+                swapchain.add_pipeline(
+                    &self.vk_device,
+                    self.descriptor_set_layout,
+                    *id,
+                    material,
+                )?;
             }
             self.swapchain = Some(swapchain);
         }
@@ -30,7 +57,8 @@ impl Engine {
         let (frame_idx, frame) = self.frame_sync.next_frame(&self.vk_device)?;
 
         // Wait for a swapchain image to become available and assign it the current frame
-        let (swapchain_image_idx, swapchain_image) = swapchain.next_image(&self.vk_device, frame)?;
+        let (swapchain_image_idx, swapchain_image) =
+            swapchain.next_image(&self.vk_device, frame)?;
 
         // Upload camera matrix
         self.camera_ubos[frame_idx].map(&self.vk_device, &[*camera.matrix(aspect).as_ref()])?;
@@ -50,17 +78,18 @@ impl Engine {
 
             // Set render pass
             let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
+                vk::ClearValue {
+                    color: vk::ClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
                 },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                }
-            }];
+                vk::ClearValue {
+                    depth_stencil: vk::ClearDepthStencilValue {
+                        depth: 1.0,
+                        stencil: 0,
+                    },
+                },
+            ];
 
             let begin_info = vk::RenderPassBeginInfoBuilder::new()
                 .framebuffer(swapchain_image.framebuffer)
@@ -141,6 +170,15 @@ impl Engine {
             self.vk_device.end_command_buffer(command_buffer).result()?;
         }
 
+        // Get views
+        let (_, views) = xr_session
+            .locate_views(
+                xr::ViewConfigurationType::PRIMARY_STEREO,
+                xr_frame_state.predicted_display_time,
+                &self.stage,
+            )
+            .unwrap();
+
         // Submit to the queue
         let wait_semaphores = [frame.image_available];
         let command_buffers = [command_buffer];
@@ -161,6 +199,43 @@ impl Engine {
 
         // Present to swapchain
         swapchain.swapchain.release_image().unwrap();
+
+        // Tell OpenXR what to present for this frame
+        let rect = xr::Rect2Di {
+            offset: xr::Offset2Di { x: 0, y: 0 },
+            extent: xr::Extent2Di {
+                width: swapchain.extent.width as _,
+                height: swapchain.extent.height as _,
+            },
+        };
+        self.frame_stream
+            .end(
+                xr_frame_state.predicted_display_time,
+                xr::EnvironmentBlendMode::OPAQUE,
+                &[&xr::CompositionLayerProjection::new()
+                    .space(&self.stage)
+                    .views(&[
+                        xr::CompositionLayerProjectionView::new()
+                            .pose(views[0].pose)
+                            .fov(views[0].fov)
+                            .sub_image(
+                                xr::SwapchainSubImage::new()
+                                    .swapchain(&swapchain.swapchain)
+                                    .image_array_index(0)
+                                    .image_rect(rect),
+                            ),
+                        xr::CompositionLayerProjectionView::new()
+                            .pose(views[1].pose)
+                            .fov(views[1].fov)
+                            .sub_image(
+                                xr::SwapchainSubImage::new()
+                                    .swapchain(&swapchain.swapchain)
+                                    .image_array_index(1)
+                                    .image_rect(rect),
+                            ),
+                    ])],
+            )
+            .unwrap();
 
         Ok(())
     }
