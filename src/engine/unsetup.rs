@@ -3,16 +3,19 @@ use crate::Engine;
 impl Drop for Engine {
     fn drop(&mut self) {
         unsafe {
+            drop(self.frame_wait.take().unwrap());
+            drop(self.frame_stream.take().unwrap());
+            drop(self.stage.take().unwrap());
             let ids = self.objects.keys().copied().collect::<Vec<_>>();
-            /*for id in ids {
+            for id in ids {
                 self.remove_object(id).unwrap();
-            }*/
+            }
             for material in self.materials.values_mut() {
                 material.free(&self.vk_device);
             }
-            /*if let Some(swapchain) = &mut self.swapchain {
+            if let Some(swapchain) = &mut self.swapchain {
                 swapchain.free(&self.vk_device, &mut self.allocator).unwrap();
-            }*/
+            }
             for ubo in &mut self.camera_ubos {
                 ubo.free(&self.vk_device, &mut self.allocator).unwrap();
             }

@@ -15,17 +15,15 @@ impl Engine {
         _time: f32,
     ) -> Result<()> {
         // Wait for OpenXR to signal it has a frame ready
-        let xr_frame_state = self.frame_wait.wait().unwrap();
-        self.frame_stream.begin().unwrap();
+        let xr_frame_state = self.frame_wait.as_mut().unwrap().wait()?;
+        self.frame_stream.as_mut().unwrap().begin()?;
 
         if !xr_frame_state.should_render {
-            self.frame_stream
-                .end(
-                    xr_frame_state.predicted_display_time,
-                    xr::EnvironmentBlendMode::OPAQUE,
-                    &[],
-                )
-                .unwrap();
+            self.frame_stream.as_mut().unwrap().end(
+                xr_frame_state.predicted_display_time,
+                xr::EnvironmentBlendMode::OPAQUE,
+                &[],
+            )?;
             return Ok(());
         }
 
@@ -171,13 +169,11 @@ impl Engine {
         }
 
         // Get views
-        let (_, views) = xr_session
-            .locate_views(
-                xr::ViewConfigurationType::PRIMARY_STEREO,
-                xr_frame_state.predicted_display_time,
-                &self.stage,
-            )
-            .unwrap();
+        let (_, views) = xr_session.locate_views(
+            xr::ViewConfigurationType::PRIMARY_STEREO,
+            xr_frame_state.predicted_display_time,
+            self.stage.as_ref().unwrap(),
+        )?;
 
         // Submit to the queue
         let wait_semaphores = [frame.image_available];
@@ -198,7 +194,7 @@ impl Engine {
         }
 
         // Present to swapchain
-        swapchain.swapchain.release_image().unwrap();
+        swapchain.swapchain.release_image()?;
 
         // Tell OpenXR what to present for this frame
         let rect = xr::Rect2Di {
@@ -208,34 +204,32 @@ impl Engine {
                 height: swapchain.extent.height as _,
             },
         };
-        self.frame_stream
-            .end(
-                xr_frame_state.predicted_display_time,
-                xr::EnvironmentBlendMode::OPAQUE,
-                &[&xr::CompositionLayerProjection::new()
-                    .space(&self.stage)
-                    .views(&[
-                        xr::CompositionLayerProjectionView::new()
-                            .pose(views[0].pose)
-                            .fov(views[0].fov)
-                            .sub_image(
-                                xr::SwapchainSubImage::new()
-                                    .swapchain(&swapchain.swapchain)
-                                    .image_array_index(0)
-                                    .image_rect(rect),
-                            ),
-                        xr::CompositionLayerProjectionView::new()
-                            .pose(views[1].pose)
-                            .fov(views[1].fov)
-                            .sub_image(
-                                xr::SwapchainSubImage::new()
-                                    .swapchain(&swapchain.swapchain)
-                                    .image_array_index(1)
-                                    .image_rect(rect),
-                            ),
-                    ])],
-            )
-            .unwrap();
+        self.frame_stream.as_mut().unwrap().end(
+            xr_frame_state.predicted_display_time,
+            xr::EnvironmentBlendMode::OPAQUE,
+            &[&xr::CompositionLayerProjection::new()
+                .space(self.stage.as_ref().unwrap())
+                .views(&[
+                    xr::CompositionLayerProjectionView::new()
+                        .pose(views[0].pose)
+                        .fov(views[0].fov)
+                        .sub_image(
+                            xr::SwapchainSubImage::new()
+                                .swapchain(&swapchain.swapchain)
+                                .image_array_index(0)
+                                .image_rect(rect),
+                        ),
+                    xr::CompositionLayerProjectionView::new()
+                        .pose(views[1].pose)
+                        .fov(views[1].fov)
+                        .sub_image(
+                            xr::SwapchainSubImage::new()
+                                .swapchain(&swapchain.swapchain)
+                                .image_array_index(1)
+                                .image_rect(rect),
+                        ),
+                ])],
+        )?;
 
         Ok(())
     }

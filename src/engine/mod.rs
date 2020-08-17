@@ -25,6 +25,9 @@ pub struct MaterialId(u32);
 pub struct ObjectId(u32);
 
 pub struct Engine {
+    frame_wait: Option<xr::FrameWaiter>,
+    frame_stream: Option<xr::FrameStream<xr::Vulkan>>,
+    stage: Option<xr::Space>,
     materials: HashMap<MaterialId, Material>,
     objects: HashMap<ObjectId, Object>,
     swapchain: Option<Swapchain>,
@@ -42,9 +45,6 @@ pub struct Engine {
     camera_ubos: Vec<AllocatedBuffer<[[f32; 4]; 4]>>,
     next_material_id: u32,
     next_object_id: u32,
-    stage: xr::Space,
-    frame_wait: xr::FrameWaiter,
-    frame_stream: xr::FrameStream<xr::Vulkan>,
     _entry: utils::loading::DefaultEntryLoader,
 }
 

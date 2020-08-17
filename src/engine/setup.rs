@@ -251,9 +251,9 @@ impl Engine {
                 objects: Default::default(),
                 next_material_id: 0,
                 next_object_id: 0,
-                stage,
-                frame_wait,
-                frame_stream,
+                stage: Some(stage),
+                frame_wait: Some(frame_wait),
+                frame_stream: Some(frame_stream),
             },
         ))
     }
