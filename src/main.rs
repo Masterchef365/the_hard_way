@@ -11,9 +11,22 @@ use winit::{
     window::WindowBuilder,
 };
 
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 const APP_NAME: &str = "Engine demo app";
 
 fn main() -> Result<()> {
+    // Handle interrupts gracefully
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::Relaxed);
+    })
+    .expect("setting Ctrl-C handler");
+
     let entry = xr::Entry::load()
         .context("couldn't find the OpenXR loader; try enabling the \"static\" feature")?;
 
@@ -100,6 +113,18 @@ fn main() -> Result<()> {
     let mut session_running = false;
 
     'main_loop: loop {
+        if !running.load(Ordering::Relaxed) {
+            println!("requesting exit");
+            // The OpenXR runtime may want to perform a smooth transition between scenes, so we
+            // can't necessarily exit instantly. Instead, we must notify the runtime of our
+            // intent and wait for it to tell us when we're actually done.
+            match session.request_exit() {
+                Ok(()) => {}
+                Err(xr::sys::Result::ERROR_SESSION_NOT_RUNNING) => break,
+                Err(e) => panic!("{}", e),
+            }
+        }
+
         while let Some(event) = xr_instance.poll_event(&mut event_storage).unwrap() {
             use xr::Event::*;
             match event {
@@ -150,6 +175,8 @@ fn main() -> Result<()> {
         engine.set_transform(mesh2, transform);
         */
     }
+
+    println!("QUITTING");
 
     drop(session);
 
