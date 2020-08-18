@@ -131,7 +131,7 @@ impl Engine {
             .enabled_extension_names(&vk_device_ext_ptrs)
             .build();
 
-        let mut phys_device_features = vk1_1::PhysicalDeviceMultiviewFeatures {
+        let mut phys_device_features = erupt::vk1_2::PhysicalDeviceVulkan11Features {
             multiview: vk::TRUE,
             ..Default::default()
         };

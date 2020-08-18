@@ -17,6 +17,10 @@ layout(location = 0) out vec3 fragColor;
 
 void main() {
     gl_Position = cam.matrix * model.matrix * vec4(inPosition, 1.0);
-    fragColor = inColor;
+    if gl_VertexIndex & 2 {
+        fragColor = vec3(1.0, 0.0, 1.0);
+    } else {
+        fragColor = inColor;
+    }
 }
 
