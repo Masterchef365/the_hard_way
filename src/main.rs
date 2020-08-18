@@ -112,6 +112,7 @@ fn main() -> Result<()> {
     let mut event_storage = xr::EventDataBuffer::new();
     let mut session_running = false;
 
+    let start_time = std::time::Instant::now();
     'main_loop: loop {
         if !running.load(Ordering::Relaxed) {
             println!("requesting exit");
@@ -167,16 +168,15 @@ fn main() -> Result<()> {
 
         engine.next_frame(&xr_instance, &session, system, &camera, 0.0)?;
 
-        /*
+        let frame_start_time = std::time::Instant::now();
+        let time_var = (frame_start_time - start_time).as_millis() as f32 / 1000.0;
+
         let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
         engine.set_transform(mesh, transform);
 
         let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
         engine.set_transform(mesh2, transform);
-        */
     }
-
-    println!("QUITTING");
 
     drop(session);
 

@@ -9,8 +9,6 @@ pub struct FrameSync {
 }
 
 pub struct Frame {
-    /// Whether or not the swapchain image has become available yet
-    pub image_available: vk::Semaphore,
     /// Whether or not rendering has finished
     pub render_finished: vk::Semaphore,
     /// Whether or not this frame is in flight
@@ -60,7 +58,6 @@ impl Frame {
     pub fn new(device: &DeviceLoader) -> Result<Self> {
         unsafe {
             let create_info = vk::SemaphoreCreateInfoBuilder::new();
-            let image_available = device.create_semaphore(&create_info, None, None).result()?;
             let render_finished = device.create_semaphore(&create_info, None, None).result()?;
 
             let create_info =
@@ -68,7 +65,6 @@ impl Frame {
             let in_flight_fence = device.create_fence(&create_info, None, None).result()?;
             Ok(Self {
                 in_flight_fence,
-                image_available,
                 render_finished,
             })
         }
@@ -76,7 +72,6 @@ impl Frame {
 
     pub fn free(&mut self, device: &DeviceLoader) {
         unsafe {
-            device.destroy_semaphore(Some(self.image_available), None);
             device.destroy_semaphore(Some(self.render_finished), None);
             if !self.in_flight_fence.is_null() {
                 device.destroy_fence(Some(self.in_flight_fence), None);

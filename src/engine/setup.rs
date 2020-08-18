@@ -3,7 +3,9 @@ use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
 use crate::Engine;
 use anyhow::{bail, Result};
-use erupt::{utils::allocator, vk1_0 as vk, vk1_1, DeviceLoader, EntryLoader, InstanceLoader};
+use erupt::{
+    cstr, utils::allocator, vk1_0 as vk, vk1_1, DeviceLoader, EntryLoader, InstanceLoader,
+};
 use openxr as xr;
 use std::ffi::CString;
 
@@ -47,6 +49,8 @@ impl Engine {
             );
         }
 
+        const LAYER_KHRONOS_VALIDATION: *const i8 = cstr!("VK_LAYER_KHRONOS_validation");
+
         // Vulkan vk_instance extensions required by OpenXR
         let vk_instance_exts = xr_instance
             .vulkan_instance_extensions(system)
@@ -55,10 +59,20 @@ impl Engine {
             .map(|x| std::ffi::CString::new(x).unwrap())
             .collect::<Vec<_>>();
 
-        let vk_instance_ext_ptrs = vk_instance_exts
+        let mut vk_instance_ext_ptrs = vk_instance_exts
             .iter()
             .map(|x| x.as_ptr())
             .collect::<Vec<_>>();
+
+        if cfg!(debug_assertions) {
+            vk_instance_ext_ptrs
+                .push(erupt::extensions::ext_debug_utils::EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+
+        let mut instance_layers = Vec::new();
+        if cfg!(debug_assertions) {
+            instance_layers.push(LAYER_KHRONOS_VALIDATION);
+        }
 
         // Vulkan vk_device extensions required by OpenXR
         let vk_device_exts = xr_instance
@@ -68,14 +82,20 @@ impl Engine {
             .map(|x| CString::new(x).unwrap())
             .collect::<Vec<_>>();
 
-        let vk_device_ext_ptrs = vk_device_exts
+        let mut vk_device_ext_ptrs = vk_device_exts
             .iter()
             .map(|x| x.as_ptr())
             .collect::<Vec<_>>();
 
+        let mut device_layers = Vec::new();
+        if cfg!(debug_assertions) {
+            device_layers.push(LAYER_KHRONOS_VALIDATION);
+        }
+
         // Create Vulkan vk_instance
         let create_info = vk::InstanceCreateInfoBuilder::new()
             .application_info(&app_info)
+            .enabled_layer_names(&instance_layers)
             .enabled_extension_names(&vk_instance_ext_ptrs);
 
         let vk_instance = InstanceLoader::new(&vk_entry, &create_info, None)?;
@@ -107,6 +127,7 @@ impl Engine {
             .queue_create_infos(&[vk::DeviceQueueCreateInfoBuilder::new()
                 .queue_family_index(queue_family_index)
                 .queue_priorities(&[1.0])])
+            .enabled_layer_names(&device_layers)
             .enabled_extension_names(&vk_device_ext_ptrs)
             .build();
 

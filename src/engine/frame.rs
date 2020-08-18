@@ -176,14 +176,9 @@ impl Engine {
         )?;
 
         // Submit to the queue
-        let wait_semaphores = [frame.image_available];
         let command_buffers = [command_buffer];
-        let signal_semaphores = [frame.render_finished];
         let submit_info = vk::SubmitInfoBuilder::new()
-            .wait_semaphores(&wait_semaphores)
-            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-            .command_buffers(&command_buffers)
-            .signal_semaphores(&signal_semaphores);
+            .command_buffers(&command_buffers);
         unsafe {
             self.vk_device
                 .reset_fences(&[frame.in_flight_fence])
