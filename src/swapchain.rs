@@ -107,7 +107,7 @@ impl Swapchain {
                     .build(),
             )
             .mip_levels(1)
-            .array_layers(1)
+            .array_layers(2)
             .format(depth_format)
             .tiling(vk::ImageTiling::OPTIMAL)
             .initial_layout(vk::ImageLayout::UNDEFINED)
@@ -128,7 +128,7 @@ impl Swapchain {
                     .base_mip_level(0)
                     .level_count(1)
                     .base_array_layer(0)
-                    .layer_count(1)
+                    .layer_count(2)
                     .build(),
             );
         let depth_image_view =
