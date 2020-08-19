@@ -26,7 +26,7 @@ fn main() -> Result<()> {
     let fragment = fs::read("shaders/triangle.frag.spv")?;
     let material = engine.load_material(&vertex, &fragment, DrawType::Triangles)?;
 
-    let vertices = [
+    let mut vertices = [
         Vertex {
             pos: [-1.0, -1.0, -1.0],
             color: [0.0, 1.0, 1.0],
@@ -66,8 +66,8 @@ fn main() -> Result<()> {
         4, 5, 0, 0, 5, 1,
     ];
 
-    let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
-    let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
+    let mesh = engine.add_object(&vertices[..], &indices[..], material, true)?;
+    let mesh2 = engine.add_object(&vertices[..], &indices[..], material, false)?;
 
     let mut camera = Camera {
         eye: Point3::new(-4.0, 4.0, -4.0),
@@ -100,6 +100,11 @@ fn main() -> Result<()> {
             frame_count += 1;
 
             let frame_duration = frame_end_time - frame_start_time;
+
+            for vert in &mut vertices {
+                vert.pos[1] += 0.01;
+            }
+            engine.reupload_vertices(mesh, &vertices).unwrap();
             /*
             print!(
                 "\x1b[1K\rFPS: Actual: {} Possible: {}",
@@ -114,8 +119,8 @@ fn main() -> Result<()> {
 
             let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
             engine.set_transform(mesh2, transform);
-            camera.eye[0] = time_var.cos();
-            camera.eye[2] = time_var.sin();
+            //camera.eye[0] = time_var.cos();
+            //camera.eye[2] = time_var.sin();
 
             if frame_duration < target_frame_time {
                 std::thread::sleep(target_frame_time - frame_duration);

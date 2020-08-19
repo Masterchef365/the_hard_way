@@ -1,7 +1,6 @@
 use anyhow::Result;
 use erupt::{
-    utils::
-        allocator::{self, Allocator},
+    utils::allocator::{self, Allocator},
     vk1_0 as vk, DeviceLoader,
 };
 use std::marker::PhantomData;
@@ -44,6 +43,9 @@ impl<T: Sized + bytemuck::Pod> AllocatedBuffer<T> {
         if !self.dynamic {
             anyhow::bail!("Cannot write to gpu-only memory");
         }
+        if std::mem::size_of::<T>() * data.len() != self.create_info.size as usize {
+            anyhow::bail!("Size must match exactly");
+        }
         let mut map = self
             .allocation
             .as_ref()
@@ -55,7 +57,17 @@ impl<T: Sized + bytemuck::Pod> AllocatedBuffer<T> {
         Ok(())
     }
 
-    pub fn gpu_only(mut self, device: &DeviceLoader, allocator: &mut Allocator, command_pool: vk::CommandPool, queue: vk::Queue) -> Result<Self> {
+    pub fn is_dynamic(&self) -> bool {
+        self.dynamic
+    }
+
+    pub fn gpu_only(
+        mut self,
+        device: &DeviceLoader,
+        allocator: &mut Allocator,
+        command_pool: vk::CommandPool,
+        queue: vk::Queue,
+    ) -> Result<Self> {
         self.create_info.usage |= vk::BufferUsageFlags::TRANSFER_DST;
         let buffer = unsafe { device.create_buffer(&self.create_info, None, None) }.result()?;
         let allocation = allocator
@@ -67,9 +79,7 @@ impl<T: Sized + bytemuck::Pod> AllocatedBuffer<T> {
             .command_pool(command_pool)
             .command_buffer_count(1);
 
-        let command_buffer = unsafe { 
-            device.allocate_command_buffers(&create_info)
-        }.result()?[0];
+        let command_buffer = unsafe { device.allocate_command_buffers(&create_info) }.result()?[0];
 
         let begin_info = vk::CommandBufferBeginInfoBuilder::new()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -83,8 +93,7 @@ impl<T: Sized + bytemuck::Pod> AllocatedBuffer<T> {
             device.cmd_copy_buffer(command_buffer, self.buffer, buffer, &[copy_region]);
             device.end_command_buffer(command_buffer);
             let command_buffers = [command_buffer];
-            let submit_info = vk::SubmitInfoBuilder::new()
-                .command_buffers(&command_buffers);
+            let submit_info = vk::SubmitInfoBuilder::new().command_buffers(&command_buffers);
             device.queue_submit(queue, &[submit_info], None).result()?;
             device.queue_wait_idle(queue).result()?;
             device.free_command_buffers(command_pool, &[command_buffer]);

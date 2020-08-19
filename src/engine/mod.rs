@@ -76,6 +76,7 @@ impl Engine {
         vertices: &[Vertex],
         indices: &[u16],
         material: MaterialId,
+        dynamic: bool,
     ) -> Result<ObjectId> {
         let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
@@ -86,31 +87,33 @@ impl Engine {
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::VERTEX_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let vertex_buffer = AllocatedBuffer::new(
+        let mut vertex_buffer = AllocatedBuffer::new(
             vertices.len(),
             create_info,
             &mut self.allocator,
             &self.device,
         )?;
         vertex_buffer.map(&self.device, vertices)?;
-        let vertex_buffer = vertex_buffer.gpu_only(
-            &self.device,
-            &mut self.allocator,
-            self.command_pool,
-            self.queue,
-        )?;
+        if !dynamic {
+            vertex_buffer = vertex_buffer.gpu_only(
+                &self.device,
+                &mut self.allocator,
+                self.command_pool,
+                self.queue,
+            )?;
+        }
 
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::INDEX_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let index_buffer = AllocatedBuffer::new(
+        let mut index_buffer = AllocatedBuffer::new(
             indices.len(),
             create_info,
             &mut self.allocator,
             &self.device,
         )?;
         index_buffer.map(&self.device, indices)?;
-        let index_buffer = index_buffer.gpu_only(
+        index_buffer = index_buffer.gpu_only(
             &self.device,
             &mut self.allocator,
             self.command_pool,
@@ -128,6 +131,13 @@ impl Engine {
         self.objects.insert(id, object);
 
         Ok(id)
+    }
+
+    pub fn reupload_vertices(&mut self, object: ObjectId, vertices: &[Vertex]) -> Result<()> {
+        if let Some(object) = self.objects.get_mut(&object) {
+            object.vertices.map(&self.device, vertices)?;
+        }
+        Ok(())
     }
 
     pub fn remove_object(&mut self, id: ObjectId) -> Result<()> {
