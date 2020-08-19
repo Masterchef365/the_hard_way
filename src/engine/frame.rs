@@ -49,7 +49,6 @@ impl Engine {
         let swapchain = self.swapchain.as_mut().unwrap();
         let render_pass = swapchain.render_pass; // These two needed for borrowing reasons
         let extent = swapchain.extent;
-        let aspect = extent.width as f32 / extent.height as f32;
 
         // Wait for the next frame to become available
         let (frame_idx, frame) = self.frame_sync.next_frame(&self.vk_device)?;
@@ -57,9 +56,6 @@ impl Engine {
         // Wait for a swapchain image to become available and assign it the current frame
         let (swapchain_image_idx, swapchain_image) =
             swapchain.next_image(&self.vk_device, frame)?;
-
-        // Upload camera matrix
-        self.camera_ubos[frame_idx].map(&self.vk_device, &[*camera.matrix(aspect).as_ref()])?;
 
         // Reset and write command buffers for this frame
         let command_buffer = self.command_buffers[frame_idx];
@@ -175,10 +171,11 @@ impl Engine {
             self.stage.as_ref().unwrap(),
         )?;
 
+        //let unit = nalgebra::Quaternion::new()
+
         // Submit to the queue
         let command_buffers = [command_buffer];
-        let submit_info = vk::SubmitInfoBuilder::new()
-            .command_buffers(&command_buffers);
+        let submit_info = vk::SubmitInfoBuilder::new().command_buffers(&command_buffers);
         unsafe {
             self.vk_device
                 .reset_fences(&[frame.in_flight_fence])
@@ -190,6 +187,12 @@ impl Engine {
 
         // Present to swapchain
         swapchain.swapchain.release_image()?;
+
+        // Upload camera matrix TODO: Only map once, never unmap!
+        self.camera_ubos[frame_idx].map(
+            &self.vk_device,
+            &[*matrix_from_view(&views[0], extent).as_ref()],
+        )?;
 
         // Tell OpenXR what to present for this frame
         let rect = xr::Rect2Di {
@@ -228,4 +231,17 @@ impl Engine {
 
         Ok(())
     }
+}
+
+use nalgebra::{Matrix4, Quaternion, Vector3, Unit};
+fn matrix_from_view(view: &xr::View, extent: vk::Extent2D) -> Matrix4<f32> {
+    let aspect = extent.width as f32 / extent.height as f32;
+    let proj = Matrix4::new_perspective(aspect, view.fov.angle_up, 0.1, 100.0);
+    let position = view.pose.position;
+    let translation = Matrix4::new_translation(&Vector3::new(position.x, position.y, position.z));
+    let quat = view.pose.orientation;
+    let quat = nalgebra::Quaternion::new(quat.x, quat.y, quat.z, quat.w);
+    let quat = Unit::try_new(quat, 0.0).expect("Not a unit quaternion");
+    let rotation: Matrix4<f32> = quat.to_rotation_matrix().matrix().fixed_resize(0.0);
+    proj * translation * rotation
 }
