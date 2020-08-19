@@ -100,20 +100,22 @@ fn main() -> Result<()> {
             frame_count += 1;
 
             let frame_duration = frame_end_time - frame_start_time;
+            /*
             print!(
                 "\x1b[1K\rFPS: Actual: {} Possible: {}",
                 frame_count / (frame_end_time - start_time).as_secs().max(1),
                 1_000_000 / frame_duration.as_micros(),
             );
             std::io::stdout().lock().flush().unwrap();
+            */
 
             let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
             engine.set_transform(mesh, transform);
 
             let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
             engine.set_transform(mesh2, transform);
-            //camera.eye[0] = time.cos();
-            //camera.eye[2] = time.sin();
+            camera.eye[0] = time_var.cos();
+            camera.eye[2] = time_var.sin();
 
             if frame_duration < target_frame_time {
                 std::thread::sleep(target_frame_time - frame_duration);

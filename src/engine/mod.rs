@@ -2,6 +2,7 @@ mod frame;
 mod internals;
 mod setup;
 mod unsetup;
+use crate::allocated_buffer::AllocatedBuffer;
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
 use crate::pipeline::DrawType;
@@ -11,15 +12,11 @@ use crate::vertex::Vertex;
 use anyhow::Result;
 use erupt::{
     extensions::khr_surface,
-    utils::{
-        self,
-        allocator::Allocator,
-    },
+    utils::{self, allocator::Allocator},
     vk1_0 as vk, DeviceLoader, InstanceLoader,
 };
 use nalgebra::Matrix4;
 use std::collections::HashMap;
-use crate::allocated_buffer::AllocatedBuffer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MaterialId(u32);
@@ -96,6 +93,12 @@ impl Engine {
             &self.device,
         )?;
         vertex_buffer.map(&self.device, vertices)?;
+        let vertex_buffer = vertex_buffer.gpu_only(
+            &self.device,
+            &mut self.allocator,
+            self.command_pool,
+            self.queue,
+        )?;
 
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::INDEX_BUFFER)
@@ -107,6 +110,12 @@ impl Engine {
             &self.device,
         )?;
         index_buffer.map(&self.device, indices)?;
+        let index_buffer = index_buffer.gpu_only(
+            &self.device,
+            &mut self.allocator,
+            self.command_pool,
+            self.queue,
+        )?;
 
         let object = Object {
             material,
