@@ -12,6 +12,39 @@ use winit::{
 
 const APP_NAME: &str = "Engine demo app";
 
+fn grid(size: u16, scale: f32) -> (Vec<Vertex>, Vec<u16>) {
+    let color = [0.0, 1.0, 0.0];
+    let mut vertices = Vec::new();
+    let offset = size as f32 * scale / 2.0;
+    for y in 0..size {
+        for x in 0..size {
+            let x = x as f32 * scale - offset;
+            let y = y as f32 * scale - offset;
+            vertices.push(Vertex {
+                pos: [x, 0.0, y],
+                color,
+            });
+        }
+    }
+
+    let mut indices = Vec::new();
+    for row in 0..size {
+        let start = row * size;
+        for (a, b) in (start..size + start).zip(1 + start..size + start) {
+            indices.push(a);
+            indices.push(b);
+        }
+        if row != size - 1 {
+            for (a, b) in (start..size + start).zip(start + size..size * 2 + start) {
+                indices.push(a);
+                indices.push(b);
+            }
+        }
+    }
+
+    (vertices, indices)
+}
+
 fn main() -> Result<()> {
     let event_loop = EventLoop::new();
 
@@ -66,8 +99,14 @@ fn main() -> Result<()> {
         4, 5, 0, 0, 5, 1,
     ];
 
-    let mesh = engine.add_object(&vertices[..], &indices[..], material, true)?;
-    let mesh2 = engine.add_object(&vertices[..], &indices[..], material, false)?;
+    let cube = engine.add_object(&vertices[..], &indices[..], material, false)?;
+
+    let material = engine.load_material(&vertex, &fragment, DrawType::Lines)?;
+
+    let (mut vertices, indices) = grid(20, 1.0);
+    dbg!(vertices.len());
+    dbg!(indices.len());
+    let grid = engine.add_object(&vertices[..], &indices[..], material, true)?;
 
     let mut camera = Camera {
         eye: Point3::new(-4.0, 4.0, -4.0),
@@ -101,10 +140,10 @@ fn main() -> Result<()> {
 
             let frame_duration = frame_end_time - frame_start_time;
 
-            for vert in &mut vertices {
-                vert.pos[1] += 0.01;
+            for (idx, vert) in vertices.iter_mut().enumerate() {
+                vert.pos[1] = (((idx as f32) / 35.0) + time_var).cos();
             }
-            engine.reupload_vertices(mesh, &vertices).unwrap();
+            engine.reupload_vertices(grid, &vertices).unwrap();
             /*
             print!(
                 "\x1b[1K\rFPS: Actual: {} Possible: {}",
@@ -115,10 +154,10 @@ fn main() -> Result<()> {
             */
 
             let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
-            engine.set_transform(mesh, transform);
+            engine.set_transform(cube, transform);
 
             let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
-            engine.set_transform(mesh2, transform);
+            engine.set_transform(grid, transform);
             //camera.eye[0] = time_var.cos();
             //camera.eye[2] = time_var.sin();
 

@@ -3,7 +3,7 @@ use erupt::vk1_0 as vk;
 use nalgebra::Point3;
 
 #[repr(C)]
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct Vertex {
     pub pos: [f32; 3],
     pub color: [f32; 3],
