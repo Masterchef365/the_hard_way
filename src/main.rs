@@ -99,15 +99,7 @@ fn main() -> Result<()> {
     ];
 
     let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
-    let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
-
-    let mut camera = Camera {
-        eye: Point3::new(-4.0, 4.0, -4.0),
-        at: Point3::origin(),
-        fovy: 45.0f32.to_radians(),
-        clip_near: 0.1,
-        clip_far: 100.0,
-    };
+    //let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
 
     let mut event_storage = xr::EventDataBuffer::new();
     let mut session_running = false;
@@ -166,16 +158,15 @@ fn main() -> Result<()> {
             continue;
         }
 
-        engine.next_frame(&xr_instance, &session, system, &camera, 0.0)?;
+        engine.next_frame(&xr_instance, &session, system, 0.0)?;
 
         let frame_start_time = std::time::Instant::now();
         let time_var = (frame_start_time - start_time).as_millis() as f32 / 1000.0;
 
-        let transform = Matrix4::from_euler_angles(0.0, time_var, 0.0);
-        engine.set_transform(mesh, transform);
-
-        let transform = Matrix4::new_translation(&Vector3::new(0.5, 0.5, 0.5));
-        engine.set_transform(mesh2, transform);
+        let rotation = Matrix4::from_euler_angles(0.0, time_var, 0.0);
+        let translation = Matrix4::new_translation(&Vector3::new(0.0, 1.0, 0.0));
+        engine.set_transform(mesh, translation);// * rotation);
+        //engine.set_transform(mesh2, transform);
     }
 
     drop(session);
