@@ -23,6 +23,25 @@ pub struct MaterialId(u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjectId(u32);
 
+#[repr(C)]
+#[derive(Default, Copy, Clone)]
+pub struct RealtimeUBO {
+    camera: [[f32; 4]; 4],
+    time: f32,
+}
+
+unsafe impl bytemuck::Zeroable for RealtimeUBO {}
+unsafe impl bytemuck::Pod for RealtimeUBO {}
+
+impl RealtimeUBO {
+    pub fn new(camera: &Matrix4<f32>, time: f32) -> Self {
+        Self {
+            camera: *camera.as_ref(),
+            time,
+        }
+    }
+}
+
 pub struct Engine {
     materials: HashMap<MaterialId, Material>,
     objects: HashMap<ObjectId, Object>,
@@ -39,7 +58,7 @@ pub struct Engine {
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_sets: Vec<vk::DescriptorSet>,
-    camera_ubos: Vec<AllocatedBuffer<[[f32; 4]; 4]>>,
+    realtime_ubo: Vec<AllocatedBuffer<RealtimeUBO>>,
     next_material_id: u32,
     next_object_id: u32,
     _entry: utils::loading::DefaultEntryLoader,

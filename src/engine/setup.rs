@@ -1,6 +1,6 @@
 use crate::frame_sync::FrameSync;
 use crate::hardware_query::HardwareSelection;
-use crate::Engine;
+use super::{Engine, RealtimeUBO};
 use anyhow::Result;
 use erupt::{
     cstr,
@@ -145,15 +145,15 @@ impl Engine {
         let create_info = vk::BufferCreateInfoBuilder::new()
             .usage(vk::BufferUsageFlags::UNIFORM_BUFFER)
             .sharing_mode(vk::SharingMode::EXCLUSIVE);
-        let camera_ubos = (0..FRAMES_IN_FLIGHT).map(|_| 
+        let realtime_ubos = (0..FRAMES_IN_FLIGHT).map(|_| 
             AllocatedBuffer::new(1, create_info.clone(), &mut allocator, &device)).collect::<Result<Vec<_>>>()?;
 
         // Bind buffers to descriptors
-        for (alloc, descriptor) in camera_ubos.iter().zip(descriptor_sets.iter()) {
+        for (alloc, descriptor) in realtime_ubos.iter().zip(descriptor_sets.iter()) {
             let buffer_infos = [vk::DescriptorBufferInfoBuilder::new()
                 .buffer(alloc.buffer)
                 .offset(0)
-                .range(std::mem::size_of::<[[f32; 4]; 4]>() as u64)];
+                .range(std::mem::size_of::<RealtimeUBO>() as u64)];
 
             let writes = [vk::WriteDescriptorSetBuilder::new()
                 .buffer_info(&buffer_infos)
@@ -172,7 +172,7 @@ impl Engine {
 
         Ok(Self {
             _entry: entry,
-            camera_ubos,
+            realtime_ubo: realtime_ubos,
             descriptor_set_layout,
             descriptor_pool,
             descriptor_sets,

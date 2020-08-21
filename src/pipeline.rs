@@ -1,6 +1,7 @@
 use crate::vertex::Vertex;
 use anyhow::Result;
 use erupt::{utils, vk1_0 as vk, DeviceLoader};
+use crate::engine::RealtimeUBO;
 use std::ffi::CString;
 
 /// Represents a backing pipeline that can render an object
@@ -140,9 +141,9 @@ impl Pipeline {
 
         let push_constant_ranges = [
             vk::PushConstantRangeBuilder::new()
-                .stage_flags(vk::ShaderStageFlags::VERTEX)
+                .stage_flags(vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT)
                 .offset(0)
-                .size(std::mem::size_of::<[[f32; 4]; 4]>() as u32)
+                .size(std::mem::size_of::<RealtimeUBO>() as u32),
         ];
 
         let create_info = vk::PipelineLayoutCreateInfoBuilder::new()

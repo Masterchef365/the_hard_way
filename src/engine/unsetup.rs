@@ -13,7 +13,7 @@ impl Drop for Engine {
             if let Some(swapchain) = &mut self.swapchain {
                 swapchain.free(&self.device, &mut self.allocator).unwrap();
             }
-            for ubo in &mut self.camera_ubos {
+            for ubo in &mut self.realtime_ubo {
                 ubo.free(&self.device, &mut self.allocator).unwrap();
             }
             self.frame_sync.free(&self.device);

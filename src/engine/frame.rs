@@ -1,11 +1,11 @@
-use super::Engine;
+use super::{Engine, RealtimeUBO};
 use crate::camera::Camera;
 use crate::swapchain::Swapchain;
 use anyhow::Result;
 use erupt::{extensions::khr_swapchain, vk1_0 as vk};
 
 impl Engine {
-    pub fn next_frame(&mut self, camera: &Camera, _time: f32) -> Result<()> {
+    pub fn next_frame(&mut self, camera: &Camera, time: f32) -> Result<()> {
         // Recreate the swapchain if necessary
         if self.swapchain.is_none() {
             let mut swapchain = Swapchain::new(
@@ -40,8 +40,10 @@ impl Engine {
             }
         };
 
-        // Upload camera matrix
-        self.camera_ubos[frame_idx].map(&self.device, &[*camera.matrix(aspect).as_ref()])?;
+        // Upload camera matrix and time
+        let realtime_ubo = RealtimeUBO::new(&camera.matrix(aspect), time);
+
+        self.realtime_ubo[frame_idx].map(&self.device, &[realtime_ubo])?;
 
         // Reset and write command buffers for this frame
         let command_buffer = self.command_buffers[frame_idx];
@@ -133,9 +135,9 @@ impl Engine {
                     self.device.cmd_push_constants(
                         command_buffer,
                         pipeline.pipeline_layout,
-                        vk::ShaderStageFlags::VERTEX,
+                        vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
                         0,
-                        std::mem::size_of::<[[f32; 4]; 4]>() as u32,
+                        std::mem::size_of::<RealtimeUBO>() as u32,
                         object.transform.data.as_ptr() as _,
                     );
 
