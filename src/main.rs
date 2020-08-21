@@ -15,6 +15,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+use rand::Rng;
+use std::time::Instant;
 
 const APP_NAME: &str = "Engine demo app";
 
@@ -98,8 +100,19 @@ fn main() -> Result<()> {
         4, 5, 0, 0, 5, 1,
     ];
 
-    let mesh = engine.add_object(&vertices[..], &indices[..], material)?;
-    //let mesh2 = engine.add_object(&vertices[..], &indices[..], material)?;
+    let floor_cube = engine.add_object(&vertices[..], &indices[..], material)?;
+
+    let mut rng = rand::thread_rng();
+    for _ in 0..100 {
+        let cube = engine.add_object(&vertices[..], &indices[..], material)?;
+        let position = Vector3::new(
+            rng.gen_range(-30.0, 30.0),
+            rng.gen_range(0.0, 30.0),
+            rng.gen_range(-30.0, 30.0),
+        );
+        let translation = Matrix4::new_translation(&position);
+        engine.set_transform(cube, translation);
+    }
 
     let mut event_storage = xr::EventDataBuffer::new();
     let mut session_running = false;
@@ -158,15 +171,17 @@ fn main() -> Result<()> {
             continue;
         }
 
+        //let start = Instant::now();
         engine.next_frame(&xr_instance, &session, system, 0.0)?;
+        //let end = Instant::now();
+        //println!("{}", end.duration_since(start).as_millis());
 
         let frame_start_time = std::time::Instant::now();
         let time_var = (frame_start_time - start_time).as_millis() as f32 / 1000.0;
 
-        let rotation = Matrix4::from_euler_angles(0.0, time_var, 0.0);
-        let translation = Matrix4::new_translation(&Vector3::new(0.0, 1.0, 0.0));
-        engine.set_transform(mesh, translation);// * rotation);
-        //engine.set_transform(mesh2, transform);
+        let position = Vector3::new(0.0, 1.0, 0.0);
+        let translation = Matrix4::new_translation(&position);
+        engine.set_transform(floor_cube, translation);
     }
 
     drop(session);

@@ -238,7 +238,7 @@ impl Engine {
 
 use nalgebra::{Matrix4, Quaternion, Vector3, Unit};
 fn matrix_from_view(view: &xr::View, extent: vk::Extent2D) -> Matrix4<f32> {
-    let proj = projection_from_fov(&view.fov, 0.001, 100.0);
+    let proj = projection_from_fov(&view.fov, 0.01, 1000.0);
     let view = view_from_pose(&view.pose);
     proj * view
 }
