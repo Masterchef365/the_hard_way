@@ -42,7 +42,7 @@ pub struct Engine {
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     descriptor_sets: Vec<vk::DescriptorSet>,
-    camera_ubos: Vec<AllocatedBuffer<[[f32; 4]; 4]>>,
+    camera_ubos: Vec<AllocatedBuffer<[f32; 32]>>,
     next_material_id: u32,
     next_object_id: u32,
     _entry: utils::loading::DefaultEntryLoader,

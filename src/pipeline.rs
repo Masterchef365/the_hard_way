@@ -142,7 +142,7 @@ impl Pipeline {
             vk::PushConstantRangeBuilder::new()
                 .stage_flags(vk::ShaderStageFlags::VERTEX)
                 .offset(0)
-                .size(std::mem::size_of::<[[f32; 4]; 4]>() as u32)
+                .size(std::mem::size_of::<[f32; 32]>() as u32)
         ];
 
         let create_info = vk::PipelineLayoutCreateInfoBuilder::new()

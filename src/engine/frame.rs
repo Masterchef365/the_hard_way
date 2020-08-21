@@ -187,9 +187,14 @@ impl Engine {
         swapchain.swapchain.release_image()?;
 
         // Upload camera matrix TODO: Only map once, never unmap!
+        let left = matrix_from_view(&views[0], extent);
+        let right = matrix_from_view(&views[1], extent);
+        let both = left.iter().chain(right.iter()).copied().collect::<Vec<_>>();
+        let mut data = [0.0; 32];
+        data.copy_from_slice(&both);
         self.camera_ubos[frame_idx].map(
             &self.vk_device,
-            &[*matrix_from_view(&views[0], extent).as_ref()],
+            &[data],
         )?;
 
         // Tell OpenXR what to present for this frame
@@ -235,7 +240,6 @@ use nalgebra::{Matrix4, Quaternion, Vector3, Unit};
 fn matrix_from_view(view: &xr::View, extent: vk::Extent2D) -> Matrix4<f32> {
     let proj = projection_from_fov(&view.fov, 0.001, 100.0);
     let view = view_from_pose(&view.pose);
-    println!("{}", proj);
     proj * view
 }
 
@@ -274,6 +278,7 @@ fn projection_from_fov(fov: &xr::Fovf, near: f32, far: f32) -> Matrix4<f32> {
     let a33 = -far / (far - near);
 
     let a43 = -(far * near) / (far - near);
+    // TODO: Just use Matrix::new() and switch it to row-major.
     let cols = vec![
         a11, 0.0, 0.0, 0.0, 
         0.0, a22, 0.0, 0.0,

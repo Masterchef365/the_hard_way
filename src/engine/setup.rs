@@ -212,7 +212,7 @@ impl Engine {
             let buffer_infos = [vk::DescriptorBufferInfoBuilder::new()
                 .buffer(alloc.buffer)
                 .offset(0)
-                .range(std::mem::size_of::<[[f32; 4]; 4]>() as u64)];
+                .range(std::mem::size_of::<[f32; 32]>() as u64)];
 
             let writes = [vk::WriteDescriptorSetBuilder::new()
                 .buffer_info(&buffer_infos)
