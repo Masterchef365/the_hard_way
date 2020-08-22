@@ -28,8 +28,10 @@ fn main() -> Result<()> {
         r.store(false, Ordering::Relaxed);
     })
     .expect("setting Ctrl-C handler");
-
-    let entry = xr::Entry::load()
+	
+	let path = std::path::Path::new(r"C:\Users\Duncan\Documents\openxrs\sys\OpenXR-SDK\build_dynamic\src\loader\Release\openxr_loader.dll");
+    println!("OPENXR PATH: {:?} {}", path, path.exists());
+	let entry = xr::Entry::load_from(path)
         .context("couldn't find the OpenXR loader; try enabling the \"static\" feature")?;
 
     let mut enabled_extensions = xr::ExtensionSet::default();

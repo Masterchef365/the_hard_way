@@ -168,8 +168,18 @@ impl Engine {
             xr_frame_state.predicted_display_time,
             self.stage.as_ref().unwrap(),
         )?;
+		
+		// Upload camera matrix TODO: Only map once, never unmap!
+        let left = matrix_from_view(&views[0], extent);
+        let right = matrix_from_view(&views[1], extent);
+        let both = left.iter().chain(right.iter()).copied().collect::<Vec<_>>();
+        let mut data = [0.0; 32];
+        data.copy_from_slice(&both);
+        self.camera_ubos[frame_idx].map(
+            &self.vk_device,
+            &[data],
+        )?;
 
-        //let unit = nalgebra::Quaternion::new()
 
         // Submit to the queue
         let command_buffers = [command_buffer];
@@ -186,16 +196,6 @@ impl Engine {
         // Present to swapchain
         swapchain.swapchain.release_image()?;
 
-        // Upload camera matrix TODO: Only map once, never unmap!
-        let left = matrix_from_view(&views[0], extent);
-        let right = matrix_from_view(&views[1], extent);
-        let both = left.iter().chain(right.iter()).copied().collect::<Vec<_>>();
-        let mut data = [0.0; 32];
-        data.copy_from_slice(&both);
-        self.camera_ubos[frame_idx].map(
-            &self.vk_device,
-            &[data],
-        )?;
 
         // Tell OpenXR what to present for this frame
         let rect = xr::Rect2Di {

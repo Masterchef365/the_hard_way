@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 erupt = "0.13.0"
-openxr = "0.13.0"
+openxr = { version = "0.13.0", features = ["loaded"] }
 winit = "0.22.2"
 anyhow = "1"
 bytemuck = "1.3.1"
