@@ -247,12 +247,12 @@ fn matrix_from_view(view: &xr::View, extent: vk::Extent2D) -> Matrix4<f32> {
 // https://gitlab.freedesktop.org/monado/demos/xrgears/-/blob/master/src/main.cpp
 fn view_from_pose(pose: &xr::Posef) -> Matrix4<f32> {
     let quat = pose.orientation;
-    let quat = nalgebra::Quaternion::new(-quat.w, quat.x, -quat.y, quat.z);
+    let quat = nalgebra::Quaternion::new(quat.w, quat.x, quat.y, quat.z);
     let quat = Unit::try_new(quat, 0.0).expect("Not a unit quaternion");
-    let rotation = quat.to_rotation_matrix().to_homogeneous();
+    let rotation = quat.to_homogeneous();
 
     let position = pose.position;
-    let position = Vector3::new(position.x, -position.y, position.z);
+    let position = Vector3::new(position.x, position.y, position.z);
     let translation = Matrix4::new_translation(&position);
 
     let view = translation * rotation;
@@ -268,7 +268,7 @@ fn projection_from_fov(fov: &xr::Fovf, near: f32, far: f32) -> Matrix4<f32> {
     let tan_down = fov.angle_down.tan();
 
     let tan_width = tan_right - tan_left;
-    let tan_height = tan_up - tan_down;
+    let tan_height = tan_down - tan_up;
 
     let a11 = 2.0 / tan_width;
     let a22 = 2.0 / tan_height;

@@ -103,6 +103,9 @@ fn main() -> Result<()> {
     ];
 
     let floor_cube = engine.add_object(&vertices[..], &indices[..], material)?;
+    let position = Vector3::new(0.0, -1.0, 0.0);
+    let translation = Matrix4::new_translation(&position);
+    engine.set_transform(floor_cube, translation);
 
     let mut rng = rand::thread_rng();
     let mut cubes = Vec::new();
@@ -183,14 +186,12 @@ fn main() -> Result<()> {
         let frame_start_time = std::time::Instant::now();
         let time_var = (frame_start_time - start_time).as_micros() as f32 / 1_000_000.0;
 
-        let position = Vector3::new(0.0, -1.0 + time_var / 2.0, 0.0);
-        let translation = Matrix4::new_translation(&position);
-        engine.set_transform(floor_cube, translation);
-
+        /*
         let rotation = Matrix4::from_euler_angles(0.0, time_var, 0.0);
         for (cube, trans) in &cubes {
             engine.set_transform(*cube, trans * rotation);
         }
+        */
     }
 
     drop(session);
