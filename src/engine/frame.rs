@@ -249,7 +249,7 @@ fn view_from_pose(pose: &xr::Posef) -> Matrix4<f32> {
     let quat = pose.orientation;
     let quat = nalgebra::Quaternion::new(-quat.w, quat.x, -quat.y, quat.z);
     let quat = Unit::try_new(quat, 0.0).expect("Not a unit quaternion");
-    let mut rotation = quat.to_rotation_matrix().to_homogeneous();
+    let rotation = quat.to_rotation_matrix().to_homogeneous();
 
     let position = pose.position;
     let position = Vector3::new(position.x, -position.y, position.z);
@@ -278,12 +278,10 @@ fn projection_from_fov(fov: &xr::Fovf, near: f32, far: f32) -> Matrix4<f32> {
     let a33 = -far / (far - near);
 
     let a43 = -(far * near) / (far - near);
-    // TODO: Just use Matrix::new() and switch it to row-major.
-    let cols = vec![
-        a11, 0.0, 0.0, 0.0, 
-        0.0, a22, 0.0, 0.0,
-        a31, a32, a33, -1.0,
-        0.0, 0.0, a43, 0.0,
-    ];
-    Matrix4::from_vec(cols)
+    Matrix4::new(
+        a11, 0.0, a31, 0.0,
+        0.0, a22, a32, 0.0,
+        0.0, 0.0, a33, a43,
+        0.0, 0.0, -1.0, 0.0,
+    )
 }
